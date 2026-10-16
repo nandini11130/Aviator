@@ -9,7 +9,14 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import routes_agent, routes_bookings, routes_flights, routes_subscriptions, routes_webhooks
+from app.api import (
+    routes_agent,
+    routes_bookings,
+    routes_flights,
+    routes_payments,
+    routes_subscriptions,
+    routes_webhooks,
+)
 from app.api.deps import get_agent_runner, get_container
 from app.config import get_settings
 
@@ -40,6 +47,7 @@ app.add_middleware(
 
 app.include_router(routes_flights.router)
 app.include_router(routes_bookings.router)
+app.include_router(routes_payments.router)
 app.include_router(routes_subscriptions.router)
 app.include_router(routes_webhooks.router)
 app.include_router(routes_agent.router)

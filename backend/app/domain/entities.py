@@ -69,3 +69,4 @@ class Subscription:
     status: SubscriptionStatus
     started_at: datetime
     renews_at: datetime | None
+    payment_reference: str | None = None

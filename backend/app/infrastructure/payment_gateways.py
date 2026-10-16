@@ -60,13 +60,10 @@ class StripePaymentGateway(PaymentGateway):
 
 
 class RazorpayPaymentGateway(PaymentGateway):
-    """Razorpay-backed gateway for personal/India accounts that can't pass
-    Stripe's business-entity requirements. Uses the Payment Links API (a
-    hosted payment page + `short_url`, like Stripe Checkout) instead of the
-    client-side Checkout.js widget, so the rest of the app's "redirect to
-    checkout_url" flow needs no changes. No `razorpay` SDK needed - it's
-    plain HTTP with basic auth, which keeps this adapter dependency-free
-    beyond `httpx` (already required project-wide).
+    """Razorpay adapter for Payment Links and Standard Checkout orders.
+
+    Uses plain HTTP with basic auth, avoiding an additional SDK dependency
+    because the project already includes `httpx`.
     """
 
     _API_BASE = "https://api.razorpay.com/v1"
@@ -98,6 +95,50 @@ class RazorpayPaymentGateway(PaymentGateway):
         response.raise_for_status()
         payload = response.json()
         return CheckoutSession(session_id=payload["id"], url=payload["short_url"])
+
+    def create_order(
+        self, amount: int, currency: str, receipt: str, notes: dict[str, str]
+    ) -> dict:
+        import httpx
+
+        if amount < 100:
+            raise ValueError("Razorpay orders must be at least 100 paise.")
+        response = httpx.post(
+            f"{self._API_BASE}/orders",
+            auth=(self._key_id, self._key_secret),
+            json={
+                "amount": amount,
+                "currency": currency,
+                "receipt": receipt,
+                "notes": notes,
+            },
+            timeout=10.0,
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def verify_order_payment(
+        self, order_id: str, payment_id: str, signature: str
+    ) -> dict:
+        import hashlib
+        import hmac
+        import httpx
+
+        expected_signature = hmac.new(
+            self._key_secret.encode(),
+            f"{order_id}|{payment_id}".encode(),
+            hashlib.sha256,
+        ).hexdigest()
+        if not hmac.compare_digest(expected_signature, signature):
+            raise ValueError("Invalid Razorpay payment signature.")
+
+        response = httpx.get(
+            f"{self._API_BASE}/orders/{order_id}",
+            auth=(self._key_id, self._key_secret),
+            timeout=10.0,
+        )
+        response.raise_for_status()
+        return response.json()
 
     def parse_webhook_event(self, payload: bytes, signature: str) -> WebhookEvent:
         import hashlib

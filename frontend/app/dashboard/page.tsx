@@ -7,6 +7,7 @@ import { ChatWidget } from "@/components/ChatWidget";
 import { FlightDealCard } from "@/components/FlightDealCard";
 import { TierCard } from "@/components/TierCard";
 import { CABIN_TIERS, type Booking, type CabinClass, type Deal, type Subscription } from "@/lib/types";
+import { openRazorpayCheckout } from "@/lib/razorpay";
 
 const POLL_INTERVAL_MS = 15_000;
 
@@ -53,11 +54,19 @@ export default function DashboardPage() {
     setBusyTier(tier);
     setError(null);
     try {
-      // Dev-activate skips real payment so the tier unlocks instantly; swap
-      // for the /api/subscriptions checkout_url flow once Stripe is live.
-      await callApi("/api/subscriptions/dev-activate", {
+      const order = await callApi<{
+        key_id: string;
+        order_id: string;
+        amount: number;
+        currency: string;
+      }>("/api/payments/subscription-order", {
         method: "POST",
         body: JSON.stringify({ tier }),
+      });
+      const payment = await openRazorpayCheckout(order, `${tier} membership`);
+      await callApi("/api/payments/verify", {
+        method: "POST",
+        body: JSON.stringify(payment),
       });
       await refresh();
     } catch (err) {
@@ -75,8 +84,23 @@ export default function DashboardPage() {
         method: "POST",
         body: JSON.stringify({ flight_id: deal.flight_id, cabin_class: deal.cabin_class }),
       });
-      // Dev-confirm stands in for completing Stripe Checkout + webhook.
-      await callApi(`/api/bookings/${booking.id}/dev-confirm`, { method: "POST" });
+      const order = await callApi<{
+        key_id: string;
+        order_id: string;
+        amount: number;
+        currency: string;
+      }>("/api/payments/booking-order", {
+        method: "POST",
+        body: JSON.stringify({ booking_id: booking.id }),
+      });
+      const payment = await openRazorpayCheckout(
+        order,
+        `${deal.cabin_class} seat on ${deal.flight_number}`
+      );
+      await callApi("/api/payments/verify", {
+        method: "POST",
+        body: JSON.stringify(payment),
+      });
       await refresh();
     } catch (err) {
       setError((err as Error).message);

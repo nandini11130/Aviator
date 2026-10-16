@@ -129,6 +129,23 @@ Stripe dashboard → **Developers → Webhooks → Add endpoint** →
 `checkout.session.completed`. Copy the signing secret into
 `STRIPE_WEBHOOK_SECRET` (Step 7's update command).
 
+## Razorpay Standard Checkout
+
+The dashboard uses Razorpay Standard Checkout for subscription and booking
+payments. The backend creates orders using server-calculated prices and
+verifies the Checkout signature and paid order before activating a membership
+or confirming a booking. For local development, set `RAZORPAY_KEY_ID` and
+`RAZORPAY_KEY_SECRET` in `backend/.env`; only the key ID is exposed to the
+browser.
+
+For Cloud Run, store both Razorpay values in Secret Manager, grant the
+Cloud Run service account Secret Manager Secret Accessor, then attach them:
+
+```powershell
+gcloud run services update aviator-api --project <PROJECT_ID> --region asia-south1 `
+  --update-secrets "RAZORPAY_KEY_ID=razorpay-key-id:latest,RAZORPAY_KEY_SECRET=razorpay-key-secret:latest"
+```
+
 ## 9. Deploy the frontend to Firebase Hosting
 
 Set `NEXT_PUBLIC_API_BASE_URL` in `frontend/.env.local` to your Cloud Run

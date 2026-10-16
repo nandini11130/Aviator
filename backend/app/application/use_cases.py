@@ -94,7 +94,13 @@ class CreateBookingUseCase:
         self._tax_calculator = tax_calculator
         self._payment_gateway = payment_gateway
 
-    def execute(self, user_id: str, flight_id: str, cabin_class: CabinClass) -> Booking:
+    def execute(
+        self,
+        user_id: str,
+        flight_id: str,
+        cabin_class: CabinClass,
+        create_checkout: bool = True,
+    ) -> Booking:
         subscription = self._subscription_repo.get_active(user_id)
         if (
             not subscription
@@ -129,24 +135,25 @@ class CreateBookingUseCase:
             created_at=datetime.now(timezone.utc),
         )
 
-        flight = self._flight_repo.get_flight(flight_id)
-        description = (
-            f"Aviator last-minute {cabin_class.value.title()} seat "
-            f"{flight.flight_number if flight else flight_id}"
-        )
-        checkout: CheckoutSession = self._payment_gateway.create_checkout_session(
-            amount=price.total,
-            description=description,
-            metadata={
-                "booking_id": booking.id,
-                "user_id": user_id,
-                "flight_id": flight_id,
-                "cabin_class": cabin_class.value,
-                "kind": "booking",
-            },
-        )
-        booking.payment_reference = checkout.session_id
-        booking.checkout_url = checkout.url
+        if create_checkout:
+            flight = self._flight_repo.get_flight(flight_id)
+            description = (
+                f"Aviator last-minute {cabin_class.value.title()} seat "
+                f"{flight.flight_number if flight else flight_id}"
+            )
+            checkout: CheckoutSession = self._payment_gateway.create_checkout_session(
+                amount=price.total,
+                description=description,
+                metadata={
+                    "booking_id": booking.id,
+                    "user_id": user_id,
+                    "flight_id": flight_id,
+                    "cabin_class": cabin_class.value,
+                    "kind": "booking",
+                },
+            )
+            booking.payment_reference = checkout.session_id
+            booking.checkout_url = checkout.url
         self._booking_repo.save(booking)
         return booking
 
@@ -223,13 +230,16 @@ class ManageSubscriptionUseCase:
             metadata={"user_id": user_id, "tier": tier.value, "kind": "subscription"},
         )
 
-    def activate(self, user_id: str, tier: CabinClass) -> Subscription:
+    def activate(
+        self, user_id: str, tier: CabinClass, payment_reference: str | None = None
+    ) -> Subscription:
         subscription = Subscription(
             user_id=user_id,
             tier=tier,
             status=SubscriptionStatus.ACTIVE,
             started_at=datetime.now(timezone.utc),
             renews_at=datetime.now(timezone.utc) + timedelta(days=30),
+            payment_reference=payment_reference,
         )
         self._subscription_repo.save(subscription)
         return subscription

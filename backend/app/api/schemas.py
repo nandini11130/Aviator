@@ -90,6 +90,23 @@ class CheckoutOut(BaseModel):
     checkout_url: str
 
 
+class RazorpayOrderOut(BaseModel):
+    key_id: str
+    order_id: str
+    amount: int
+    currency: str
+
+
+class RazorpayBookingOrderRequest(BaseModel):
+    booking_id: str
+
+
+class RazorpayVerifyRequest(BaseModel):
+    razorpay_order_id: str | None = None
+    razorpay_payment_id: str | None = None
+    razorpay_signature: str | None = None
+
+
 class SubscriptionOut(BaseModel):
     tier: CabinClass
     status: str

@@ -188,6 +188,7 @@ class FirestoreSubscriptionRepository(SubscriptionRepository):
             status=SubscriptionStatus(data["status"]),
             started_at=data["started_at"],
             renews_at=data.get("renews_at"),
+            payment_reference=data.get("payment_reference"),
         )
 
     def save(self, subscription: Subscription) -> None:
@@ -197,5 +198,6 @@ class FirestoreSubscriptionRepository(SubscriptionRepository):
                 "status": subscription.status.value,
                 "started_at": subscription.started_at,
                 "renews_at": subscription.renews_at,
+                "payment_reference": subscription.payment_reference,
             }
         )

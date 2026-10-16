@@ -23,6 +23,7 @@ def create_booking(
             user_id=user_id,
             flight_id=request.flight_id,
             cabin_class=request.cabin_class,
+            create_checkout=False,
         )
     except SubscriptionRequiredError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
