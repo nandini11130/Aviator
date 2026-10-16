@@ -1,0 +1,32 @@
+rules_version = '2';
+
+// The FastAPI backend talks to Firestore with the Admin SDK, which bypasses
+// these rules entirely. These rules only govern direct client access (there
+// is none from the current frontend), so they default-deny everything and
+// allow narrowly-scoped reads if you later add direct client reads.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Flight + seat inventory is public, read-only reference data.
+    match /flights/{flightId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /seat_inventory/{inventoryId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // A user may only ever read their own bookings/subscription directly.
+    match /bookings/{bookingId} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.user_id;
+      allow write: if false;
+    }
+
+    match /subscriptions/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if false;
+    }
+  }
+}

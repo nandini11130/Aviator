@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+backend/.venv/
+backend/.env
+backend/.pytest_cache/
+
+# Node / Next.js
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.env.local
+
+# Firebase / GCP
+.firebaserc
+firebase-debug.log
+.firebase/
+
+# Editors / OS
+.DS_Store
