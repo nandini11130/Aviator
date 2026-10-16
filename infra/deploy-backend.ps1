@@ -10,15 +10,19 @@
         artifactregistry.googleapis.com firestore.googleapis.com aiplatform.googleapis.com
 
 .USAGE
-  ./infra/deploy-backend.ps1 -ProjectId "my-project" -Region "asia-south1"
+  ./infra/deploy-backend.ps1 -ProjectId "my-project" -FirebaseProjectId "my-firebase-project" -Region "asia-south1"
 #>
 param(
   [Parameter(Mandatory = $true)][string]$ProjectId,
+  [string]$FirebaseProjectId,
   [string]$Region = "asia-south1",
   [string]$ServiceName = "aviator-api"
 )
 
 $ErrorActionPreference = "Stop"
+if (-not $FirebaseProjectId) {
+  $FirebaseProjectId = $ProjectId
+}
 Push-Location "$PSScriptRoot/../backend"
 
 try {
@@ -33,7 +37,7 @@ try {
     --source . `
     --platform managed `
     --allow-unauthenticated `
-    --set-env-vars "ENVIRONMENT=production,GOOGLE_CLOUD_PROJECT=$ProjectId,FIREBASE_PROJECT_ID=$ProjectId"
+    --update-env-vars "ENVIRONMENT=production,GOOGLE_CLOUD_PROJECT=$ProjectId,FIREBASE_PROJECT_ID=$FirebaseProjectId,CORS_ALLOW_ORIGINS=https://$FirebaseProjectId.web.app"
 
   Write-Host "Done. Fetch the service URL with:"
   Write-Host "  gcloud run services describe $ServiceName --project $ProjectId --region $Region --format='value(status.url)'"

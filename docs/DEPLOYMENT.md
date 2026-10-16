@@ -93,8 +93,11 @@ https://dashboard.stripe.com/register → **Developers → API keys** (use the
 ## 7. Deploy the backend to Cloud Run
 
 ```powershell
-./infra/deploy-backend.ps1 -ProjectId <PROJECT_ID> -Region asia-south1
+./infra/deploy-backend.ps1 -ProjectId <PROJECT_ID> -FirebaseProjectId <FIREBASE_PROJECT_ID> -Region asia-south1
 ```
+
+If your Firebase project has a different project ID from your GCP project,
+pass it separately with `-FirebaseProjectId <FIREBASE_PROJECT_ID>`.
 
 This builds `backend/Dockerfile` with Cloud Build and deploys it with
 `ENVIRONMENT=production`. After it finishes, grab the service URL:
