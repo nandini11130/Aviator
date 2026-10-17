@@ -6,8 +6,14 @@ from __future__ import annotations
 
 import threading
 
-from app.domain.entities import Booking, SeatInventory, Subscription
-from app.domain.ports import BookingRepository, FlightDataProvider, FlightRepository, SubscriptionRepository
+from app.domain.entities import Booking, DemoPass, SeatInventory, Subscription
+from app.domain.ports import (
+    BookingRepository,
+    DemoPassRepository,
+    FlightDataProvider,
+    FlightRepository,
+    SubscriptionRepository,
+)
 from app.domain.value_objects import CabinClass
 
 
@@ -80,3 +86,17 @@ class InMemorySubscriptionRepository(SubscriptionRepository):
     def save(self, subscription: Subscription) -> None:
         with self._lock:
             self._subscriptions[subscription.user_id] = subscription
+
+
+class InMemoryDemoPassRepository(DemoPassRepository):
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._demo_passes: dict[str, DemoPass] = {}
+
+    def get(self, user_id: str):
+        with self._lock:
+            return self._demo_passes.get(user_id)
+
+    def save(self, demo_pass: DemoPass) -> None:
+        with self._lock:
+            self._demo_passes[demo_pass.user_id] = demo_pass

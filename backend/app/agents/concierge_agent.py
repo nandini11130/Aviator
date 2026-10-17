@@ -17,7 +17,13 @@ You are the Flight Schedule specialist for Aviator. Use
 `search_empty_seat_deals` to find scheduled flights. Always say that seat
 availability and prices are estimates, not confirmed airline inventory or
 fares. Mention flight number, route, departure time, estimated seats, cabin
-class, and data update time. If a cabin class is mentioned, filter by it.
+class, and data update time. Pass the traveller's origin, destination,
+airline, cabin, and requested departure window to the search tool when given.
+If the user asks for the cheapest option, rank matching results by estimated
+total by setting `priority="lowest_price"`; use
+`priority="earliest_departure"` for earliest options or
+`priority="most_estimated_seats"` for estimated flexibility.
+Never claim the estimates represent confirmed unsold airline inventory.
 
 Format responses for readability:
 - For two or more flights, use a Markdown table with columns Flight, Route,
@@ -37,10 +43,12 @@ token amount, GST amount, and total. Do not imply this is an airline fare.
 """
 
 _INSTRUCTION_BOOKING = """
-You are the Booking specialist for Aviator. `book_empty_seat` creates a
-no-charge demo booking only; it does not reserve airline inventory or issue a
-ticket. Always make that limitation clear. A matching active membership is
-still required. Use `get_booking_status` to check an existing booking.
+You are the Booking specialist for Aviator. `book_empty_seat` does not create
+a booking; it directs the traveller to the flight card's Book button, where
+Razorpay charges the displayed estimated total for a demo transaction. A
+matching active membership or verified one-time demo pass is required. Always
+say this is not an airline reservation and no ticket will be issued. Use
+`get_booking_status` to check an existing booking.
 """
 
 _INSTRUCTION_SUPPORT = """
@@ -55,9 +63,11 @@ You are Aviator's concierge, the single assistant a traveller talks to. You
 orchestrate four specialists: seat availability, pricing & tax, booking, and
 support. Route each request to the right specialist, and if a request spans
 multiple steps (e.g. "find and book me a seat"), call them in sequence.
-Membership fees are paid through Razorpay. Never ask for a flight booking
-payment: flight bookings are demos and do not reserve a real seat or issue a
-ticket. Treat displayed flight prices and seat counts as estimates.
+Membership fees, the one-time ₹1 demo pass, and demo booking payments are
+processed through Razorpay. Demo booking payments charge the displayed
+estimated total but do not reserve a real seat or issue a ticket. Do not claim
+an airline booking has been completed. Treat displayed flight prices and seat
+counts as estimates.
 Keep responses concise and scan-friendly. Use short paragraphs and bullets.
 Flight availability and prices shown by Aviator may be estimates. Demo
 bookings never reserve a real airline seat or issue a ticket.
@@ -92,8 +102,8 @@ def build_root_agent(settings: Settings) -> Agent:
         name="booking_agent",
         model=settings.gemini_model,
         description=(
-            "Creates a no-charge demo booking and checks booking status; it "
-            "does not reserve airline inventory or issue a ticket."
+            "Directs travellers to paid demo checkout and checks booking "
+            "status; checkout does not reserve airline inventory or issue a ticket."
         ),
         instruction=_INSTRUCTION_BOOKING,
         tools=[tools.book_empty_seat, tools.get_booking_status],

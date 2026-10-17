@@ -32,18 +32,18 @@ function PlaneIcon() {
 const steps = [
   {
     number: "01",
-    title: "Choose your cabin",
-    description: "Pick Economy, Business, or First to find the membership that fits your travel style.",
+    title: "Share what works for you",
+    description: "Set your route, date, cabin, airline, and priorities—or describe the trip naturally to the AI concierge.",
   },
   {
     number: "02",
-    title: "Explore flight schedules",
-    description: "Browse selected Delhi domestic schedules with clearly labeled estimated availability and prices.",
+    title: "Compare transparent options",
+    description: "Sort schedule-based estimates by lowest indicative total, earliest departure, or estimated flexibility.",
   },
   {
     number: "03",
-    title: "Try a demo booking",
-    description: "Save a no-charge demo booking with a matching membership. It does not reserve a seat or issue a ticket.",
+    title: "Test the booking journey",
+    description: "Use a one-time ₹1 pass to unlock Razorpay demo checkout. The displayed estimated amount is charged, but no airline seat is reserved or ticket issued.",
   },
 ];
 
@@ -80,16 +80,18 @@ export default function LandingPage() {
         <div className="max-w-2xl">
           <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-aviator-gold/20 bg-aviator-gold/[0.08] px-3.5 py-2 text-xs font-medium tracking-wide text-aviator-gold sm:text-sm">
             <span className="h-1.5 w-1.5 rounded-full bg-aviator-gold" />
-            Flight schedule demo
+            AI-powered flexible travel discovery
           </div>
           <h1 className="text-5xl font-semibold leading-[1.07] tracking-[-0.045em] sm:text-6xl lg:text-[4.35rem]">
-            Find your next flight.
+            Travel on your terms.
             <br />
-            <span className="text-aviator-gold">Explore routes with Aviator.</span>
+            <span className="text-aviator-gold">Make flexibility count.</span>
           </h1>
           <p className="mt-6 max-w-xl text-base leading-7 text-slate-300 sm:text-lg sm:leading-8">
-            Explore scheduled flights and estimated cabin availability. Join a
-            membership to try the Aviator demo experience.
+            Aviator explores a real travel problem: travellers need better
+            ways to find affordable options, and flexible demand could help put
+            unused airline capacity to work. Search schedules free and let a
+            multi-agent concierge match your preferences.
           </p>
 
           <div className="mt-9 flex flex-col gap-3 sm:flex-row">
@@ -97,7 +99,7 @@ export default function LandingPage() {
               href="/login"
               className="inline-flex items-center justify-center gap-2 rounded-full bg-aviator-gold px-6 py-3.5 font-semibold text-aviator-midnight shadow-[0_8px_30px_rgba(231,181,73,0.16)] transition hover:-translate-y-0.5 hover:brightness-105"
             >
-              Find your next flight <ArrowIcon />
+              Explore flight options <ArrowIcon />
             </Link>
             <a
               href="#how-it-works"
@@ -109,13 +111,13 @@ export default function LandingPage() {
 
           <div className="mt-10 flex flex-wrap items-center gap-x-7 gap-y-3 border-t border-white/10 pt-6 text-sm text-slate-400">
             <span className="flex items-center gap-2">
-              <span className="text-aviator-gold">✦</span> Economy to First
+              <span className="text-aviator-gold">✦</span> Natural-language trip matching
             </span>
             <span className="flex items-center gap-2">
-              <span className="text-aviator-gold">✦</span> Secure checkout
+              <span className="text-aviator-gold">✦</span> Transparent estimates
             </span>
             <span className="flex items-center gap-2">
-              <span className="text-aviator-gold">✦</span> Estimates clearly labeled
+              <span className="text-aviator-gold">✦</span> ₹1 one-time demo pass
             </span>
           </div>
         </div>
@@ -175,7 +177,7 @@ export default function LandingPage() {
                   </span>
                   <div>
                     <p className="text-sm font-medium">Make room for a getaway</p>
-                    <p className="mt-0.5 text-xs text-slate-400">Choose a cabin to get started</p>
+                    <p className="mt-0.5 text-xs text-slate-400">Let the AI find a match for you</p>
                   </div>
                 </div>
                 <span className="text-2xl text-aviator-gold">✦</span>
@@ -194,6 +196,49 @@ export default function LandingPage() {
           <div className="absolute -bottom-5 -left-4 hidden rounded-2xl border border-white/10 bg-[#151e37] px-4 py-3 shadow-xl sm:block">
             <p className="text-xs text-slate-400">Pick your way to fly</p>
             <p className="mt-1 text-sm font-semibold"><span className="text-aviator-gold">3 cabins</span> · one destination</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="relative z-10 mx-auto max-w-7xl px-5 pb-16 sm:px-8 lg:px-12 lg:pb-20">
+        <div className="rounded-[2rem] border border-white/10 bg-[#0c1428] p-6 sm:p-9">
+          <div className="max-w-2xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-aviator-gold">
+              The problem worth solving
+            </p>
+            <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
+              Better options for travellers. Better use of capacity for airlines.
+            </h2>
+            <p className="mt-3 text-sm leading-6 text-slate-400">
+              Fixed-date search can miss options that work for flexible
+              travellers. Aviator prototypes a preference-aware discovery layer
+              now, with verified airline or GDS inventory as the necessary next
+              step before real empty-seat offers can be made.
+            </p>
+          </div>
+          <div className="mt-7 grid gap-3 md:grid-cols-3">
+            {[
+              {
+                title: "Affordability",
+                copy: "Rank indicative options by total estimate, not just headline amount.",
+              },
+              {
+                title: "Flexible demand",
+                copy: "Use route, date, cabin, airline, and timing preferences to find a practical match.",
+              },
+              {
+                title: "Trust by design",
+                copy: "Keep schedule data, estimated availability, and real booking inventory clearly distinct.",
+              },
+            ].map((item) => (
+              <article
+                key={item.title}
+                className="rounded-2xl border border-white/[0.08] bg-white/[0.025] p-5"
+              >
+                <h3 className="font-semibold">{item.title}</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-400">{item.copy}</p>
+              </article>
+            ))}
           </div>
         </div>
       </section>
@@ -224,8 +269,9 @@ export default function LandingPage() {
             <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">Pick your cabin.</h2>
           </div>
           <p className="max-w-md text-sm leading-6 text-slate-400">
-            Choose a membership to explore schedules for that cabin. Membership
-            fees are charged; demo bookings do not have a booking payment.
+            Search is free. A one-time ₹1 pass unlocks demo bookings across
+            cabins. A booking charges its displayed estimated total as a demo
+            payment; monthly memberships are separate.
           </p>
         </div>
 
@@ -281,7 +327,7 @@ export default function LandingPage() {
           <div className="max-w-2xl">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-aviator-gold">Your next trip starts here</p>
             <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">Ready when you are.</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-400">Sign in, choose your cabin, and see where you could go.</p>
+            <p className="mt-2 text-sm leading-6 text-slate-400">Sign in, set your preferences, and explore schedule-based options with the AI concierge.</p>
           </div>
           <Link
             href="/login"

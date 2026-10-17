@@ -1,9 +1,10 @@
 # Aviator — Architecture
 
-Aviator is a subscription marketplace for last-minute empty airline seats.
-Travellers subscribe by cabin class (Economy / Business / First) and can
-then book any live empty seat in that class for a small **token amount +
-GST** (e.g. ₹500 + 5% GST for Economy).
+Aviator provides flight schedules and paid demo checkout. Flight search is
+free; a verified one-time ₹1 demo pass unlocks demo booking checkout across
+cabin classes. Checkout charges the displayed estimated total but does not
+reserve airline inventory or issue tickets. Monthly memberships
+(Economy / Business / First) are separate.
 
 ## Layered architecture (Clean/Hexagonal)
 
@@ -24,9 +25,9 @@ flowchart TB
     end
 
     subgraph Domain["Domain layer (pure Python)"]
-        ENT["Entities: Flight, SeatInventory,\nBooking, Subscription"]
+        ENT["Entities: Flight, SeatInventory,\nBooking, Subscription, DemoPass"]
         VO["Value objects: Money, PriceBreakdown"]
-        PORTS["Ports (ABCs): FlightRepository,\nBookingRepository, PaymentGateway,\nTaxCalculator, FlightDataProvider"]
+        PORTS["Ports (ABCs): FlightRepository,\nBookingRepository, SubscriptionRepository,\nDemoPassRepository, PaymentGateway,\nTaxCalculator, FlightDataProvider"]
     end
 
     subgraph Infrastructure["Infrastructure layer (adapters)"]
@@ -67,7 +68,7 @@ layer have zero imports of FastAPI, Firestore, Stripe, or ADK.
 | Multi-agent orchestration | **Google ADK** (Agent Development Kit) — one root "concierge" agent with 4 specialist sub-agents (seat availability, pricing/tax, booking, support) |
 | LLM | **Gemini** (`gemini-2.5-flash`), via a free **Google AI Studio** API key locally, or Vertex AI in production |
 | Auth | **Firebase Authentication** (Google sign-in) |
-| Database | **Firestore** (flights, seat inventory, bookings, subscriptions) |
+| Database | **Firestore** (flights, seat inventory, bookings, subscriptions, demo passes) |
 | Backend hosting | **Cloud Run** (containerised FastAPI + ADK agents) |
 | Frontend hosting | **Firebase Hosting** (static Next.js export) |
 | Build | **Cloud Build** (triggered implicitly by `gcloud run deploy --source`) |

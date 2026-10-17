@@ -5,7 +5,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Aviator — Flight schedules and demo bookings",
   description:
-    "Explore flight schedules with estimated seat availability and prices. Memberships unlock no-charge demo bookings.",
+    "Compare scheduled flights using flexible preferences. Paid demo bookings use displayed estimated amounts and do not reserve airline seats.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

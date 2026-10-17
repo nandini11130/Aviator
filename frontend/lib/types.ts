@@ -46,6 +46,11 @@ export interface Subscription {
   renews_at: string | null;
 }
 
+export interface DemoPass {
+  active: boolean;
+  purchased_at: string | null;
+}
+
 export interface ChatResponse {
   session_id: string;
   reply: string;

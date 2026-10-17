@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 
 from app.domain.entities import (
     Booking,
@@ -20,6 +20,7 @@ from app.domain.entities import (
 from app.domain.ports import (
     BookingRepository,
     CheckoutSession,
+    DemoPassRepository,
     FlightRepository,
     PaymentGateway,
     SubscriptionRepository,
@@ -37,6 +38,22 @@ class SeatUnavailableError(ValueError):
     """Raised when the last empty seat was taken by someone else first."""
 
 
+def parse_departure_datetime(
+    value: str | None, *, end_of_day: bool = False
+) -> datetime | None:
+    if not value:
+        return None
+    raw = value.strip()
+    if len(raw) == 10:
+        parsed_date = date.fromisoformat(raw)
+        parsed_time = time.max if end_of_day else time.min
+        return datetime.combine(parsed_date, parsed_time, tzinfo=timezone.utc)
+    parsed_datetime = datetime.fromisoformat(raw)
+    if parsed_datetime.tzinfo is None:
+        return parsed_datetime.replace(tzinfo=timezone.utc)
+    return parsed_datetime.astimezone(timezone.utc)
+
+
 @dataclass(slots=True)
 class DealView:
     flight: Flight
@@ -45,16 +62,49 @@ class DealView:
 
 
 class SearchEmptySeatDealsUseCase:
-    """Lists live last-minute empty-seat deals, optionally by cabin class."""
+    """Lists schedules filtered by a traveller's route and timing preferences."""
 
     def __init__(self, flight_repo: FlightRepository, tax_calculator: TaxCalculator):
         self._flight_repo = flight_repo
         self._tax_calculator = tax_calculator
 
-    def execute(self, cabin_class: CabinClass | None = None) -> list[DealView]:
+    def execute(
+        self,
+        cabin_class: CabinClass | None = None,
+        origin: str = "",
+        destination: str = "",
+        airline: str = "",
+        departure_after: datetime | None = None,
+        departure_before: datetime | None = None,
+    ) -> list[DealView]:
+        def as_utc(value: datetime | None) -> datetime | None:
+            if value is None:
+                return None
+            if value.tzinfo is None:
+                return value.replace(tzinfo=timezone.utc)
+            return value.astimezone(timezone.utc)
+
+        earliest = as_utc(departure_after)
+        latest = as_utc(departure_before)
+        if earliest and latest and earliest > latest:
+            raise ValueError("departure_after must be earlier than departure_before.")
+
         deals = self._flight_repo.list_empty_seat_deals(cabin_class)
         views: list[DealView] = []
         for flight, inventory in deals:
+            if origin and origin.upper() not in flight.origin.upper():
+                continue
+            if destination and destination.upper() not in flight.destination.upper():
+                continue
+            if airline and airline.casefold() not in flight.airline.casefold():
+                continue
+            scheduled_departure = as_utc(flight.departure_time)
+            if scheduled_departure is None:
+                continue
+            if earliest and scheduled_departure < earliest:
+                continue
+            if latest and scheduled_departure > latest:
+                continue
             tax = self._tax_calculator.calculate(
                 inventory.base_token_amount, inventory.cabin_class
             )
@@ -75,10 +125,7 @@ class CalculatePriceUseCase:
 
 
 class CreateBookingUseCase:
-    """Reserves a seat and starts a hosted Stripe Checkout for the token
-    amount + GST. Requires the caller to hold an active subscription for
-    the cabin class they are trying to book.
-    """
+    """Creates bookings, with demo access controlled by membership or pass."""
 
     def __init__(
         self,
@@ -87,12 +134,14 @@ class CreateBookingUseCase:
         subscription_repo: SubscriptionRepository,
         tax_calculator: TaxCalculator,
         payment_gateway: PaymentGateway,
+        demo_pass_repo: DemoPassRepository | None = None,
     ):
         self._flight_repo = flight_repo
         self._booking_repo = booking_repo
         self._subscription_repo = subscription_repo
         self._tax_calculator = tax_calculator
         self._payment_gateway = payment_gateway
+        self._demo_pass_repo = demo_pass_repo
 
     def execute(
         self,
@@ -103,14 +152,20 @@ class CreateBookingUseCase:
         demo: bool = False,
     ) -> Booking:
         subscription = self._subscription_repo.get_active(user_id)
-        if (
-            not subscription
-            or subscription.status != SubscriptionStatus.ACTIVE
-            or subscription.tier != cabin_class
-        ):
+        has_matching_subscription = (
+            subscription is not None
+            and subscription.status == SubscriptionStatus.ACTIVE
+            and subscription.tier == cabin_class
+        )
+        has_demo_pass = (
+            demo
+            and self._demo_pass_repo is not None
+            and self._demo_pass_repo.get(user_id) is not None
+        )
+        if not has_matching_subscription and not has_demo_pass:
             raise SubscriptionRequiredError(
-                f"An active {cabin_class.value} subscription is required to book"
-                " this cabin class."
+                f"An active {cabin_class.value} subscription or a paid demo pass "
+                "is required to book this cabin class."
             )
 
         inventory = self._flight_repo.get_seat_inventory(flight_id, cabin_class)
@@ -131,7 +186,7 @@ class CreateBookingUseCase:
             token_amount=price.token_amount,
             tax_amount=price.tax_amount,
             status=(
-                BookingStatus.DEMO_CONFIRMED
+                BookingStatus.DEMO_PENDING_PAYMENT
                 if demo
                 else BookingStatus.PENDING_PAYMENT
             ),

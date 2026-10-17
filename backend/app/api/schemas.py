@@ -105,8 +105,10 @@ class RazorpayOrderOut(BaseModel):
     currency: str
 
 
-class RazorpayBookingOrderRequest(BaseModel):
+class BookingPaymentOrderOut(RazorpayOrderOut):
     booking_id: str
+    estimated_total: MoneyOut
+    demo_only: bool = True
 
 
 class RazorpayVerifyRequest(BaseModel):
@@ -120,6 +122,11 @@ class SubscriptionOut(BaseModel):
     status: str
     started_at: datetime
     renews_at: datetime | None
+
+
+class DemoPassOut(BaseModel):
+    active: bool
+    purchased_at: datetime | None = None
 
 
 class ChatRequest(BaseModel):

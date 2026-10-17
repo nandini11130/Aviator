@@ -22,7 +22,7 @@ function renderInline(text: string) {
 }
 
 function renderAssistantMessage(text: string) {
-  const lines = text.split(/\r?\n/);
+  const lines = text.replace(/<br\s*\/?>/gi, "\n").split(/\r?\n/);
   const blocks: React.ReactNode[] = [];
   let index = 0;
 
@@ -135,8 +135,8 @@ export function ChatWidget() {
   const [sessionId, setSessionId] = useState<string | undefined>(undefined);
   const [sending, setSending] = useState(false);
 
-  const send = async () => {
-    const text = input.trim();
+  const send = async (prompt?: string) => {
+    const text = (prompt ?? input).trim();
     if (!text || sending) return;
     setMessages((prev) => [...prev, { role: "user", text }]);
     setInput("");
@@ -162,22 +162,47 @@ export function ChatWidget() {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 rounded-full bg-aviator-sky px-5 py-3 font-semibold shadow-xl"
+        className="fixed bottom-6 right-6 rounded-full border border-white/15 bg-aviator-sky px-5 py-3 font-semibold shadow-[0_12px_40px_rgba(40,103,231,0.32)] transition hover:-translate-y-0.5"
       >
-        💬 Ask the concierge
+        ✦ Ask Aviator AI
       </button>
     );
   }
 
   return (
     <div className="fixed bottom-4 right-4 z-50 flex h-[min(34rem,calc(100vh-2rem))] w-[calc(100vw-2rem)] flex-col rounded-2xl border border-white/10 bg-aviator-midnight shadow-2xl sm:bottom-6 sm:right-6 sm:w-96">
-      <div className="flex shrink-0 items-center justify-between border-b border-white/10 p-3">
-        <span className="font-semibold">Aviator concierge</span>
+      <div className="flex shrink-0 items-center justify-between border-b border-white/10 p-4">
+        <div>
+          <span className="font-semibold">Aviator AI concierge</span>
+          <p className="mt-0.5 text-[10px] text-blue-100/45">Google ADK · flight discovery agents</p>
+        </div>
         <button onClick={() => setOpen(false)} className="text-blue-100/60">
           ✕
         </button>
       </div>
       <div className="flex-1 space-y-3 overflow-y-auto p-3 text-sm">
+        {messages.length === 1 && (
+          <div className="space-y-2 rounded-xl border border-white/[0.08] bg-white/[0.025] p-3">
+            <p className="text-xs font-medium text-blue-100/65">
+              Try a travel request
+            </p>
+            {[
+              "Find the lowest estimated fare from DEL to BOM in Economy.",
+              "Show Business flights from DEL to LHR departing after 2026-10-20.",
+              "Compare the earliest options from BOM to DXB.",
+            ].map((prompt) => (
+              <button
+                key={prompt}
+                type="button"
+                disabled={sending}
+                onClick={() => void send(prompt)}
+                className="block w-full rounded-lg border border-white/[0.08] px-3 py-2 text-left text-xs leading-5 text-blue-50/80 transition hover:border-aviator-gold/30 hover:bg-aviator-gold/[0.06] disabled:opacity-50"
+              >
+                {prompt}
+              </button>
+            ))}
+          </div>
+        )}
         {messages.map((m, i) => (
           <div
             key={i}
@@ -200,12 +225,14 @@ export function ChatWidget() {
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && send()}
-          placeholder="Ask about flights or memberships..."
+          onKeyDown={(e) => {
+            if (e.key === "Enter") void send();
+          }}
+          placeholder="Route, date, airline, cabin, budget…"
           className="min-w-0 flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm"
         />
         <button
-          onClick={send}
+          onClick={() => void send()}
           disabled={sending}
           className="rounded-lg bg-aviator-gold px-3 py-2 text-sm font-semibold text-aviator-midnight disabled:opacity-40"
         >

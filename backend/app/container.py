@@ -15,7 +15,12 @@ from app.application.use_cases import (
     ManageSubscriptionUseCase,
     SearchEmptySeatDealsUseCase,
 )
-from app.domain.ports import BookingRepository, PaymentGateway, SubscriptionRepository
+from app.domain.ports import (
+    BookingRepository,
+    DemoPassRepository,
+    PaymentGateway,
+    SubscriptionRepository,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -27,5 +32,6 @@ class Container:
     manage_subscription: ManageSubscriptionUseCase
     booking_repo: BookingRepository
     subscription_repo: SubscriptionRepository
+    demo_pass_repo: DemoPassRepository
     payment_gateway: PaymentGateway
     refresh_flights: Callable[[], None]

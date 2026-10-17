@@ -34,7 +34,9 @@ try {
   # --source builds the Dockerfile with Cloud Build and deploys in one step.
   # Secrets (Stripe keys, AI Studio key) should be set with --set-secrets
   # instead of --set-env-vars once you have them in Secret Manager.
-  $environmentVariables = "ENVIRONMENT=production,GOOGLE_CLOUD_PROJECT=$ProjectId,FIREBASE_PROJECT_ID=$FirebaseProjectId,GOOGLE_GENAI_USE_VERTEXAI=true,GOOGLE_CLOUD_LOCATION=$Region,CORS_ALLOW_ORIGINS=https://$FirebaseProjectId.web.app"
+  # The global Vertex AI endpoint reduces regional capacity-related 429 errors.
+  # Cloud Run remains deployed in $Region; Gemini processing region is not fixed.
+  $environmentVariables = "ENVIRONMENT=production,GOOGLE_CLOUD_PROJECT=$ProjectId,FIREBASE_PROJECT_ID=$FirebaseProjectId,GOOGLE_GENAI_USE_VERTEXAI=true,GOOGLE_CLOUD_LOCATION=global,CORS_ALLOW_ORIGINS=https://$FirebaseProjectId.web.app"
   if ($FlightDataProvider) {
     $environmentVariables += ",FLIGHT_DATA_PROVIDER=$FlightDataProvider"
   }

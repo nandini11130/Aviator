@@ -35,6 +35,8 @@ class BookingStatus(str, Enum):
     PENDING_PAYMENT = "PENDING_PAYMENT"
     CONFIRMED = "CONFIRMED"
     DEMO_CONFIRMED = "DEMO_CONFIRMED"
+    DEMO_PENDING_PAYMENT = "DEMO_PENDING_PAYMENT"
+    DEMO_PAID = "DEMO_PAID"
     CANCELLED = "CANCELLED"
     EXPIRED = "EXPIRED"
 
@@ -71,3 +73,10 @@ class Subscription:
     started_at: datetime
     renews_at: datetime | None
     payment_reference: str | None = None
+
+
+@dataclass(slots=True)
+class DemoPass:
+    user_id: str
+    payment_reference: str
+    purchased_at: datetime

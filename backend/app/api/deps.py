@@ -29,6 +29,7 @@ from app.infrastructure.flight_data_providers import (
 )
 from app.infrastructure.memory_repositories import (
     InMemoryBookingRepository,
+    InMemoryDemoPassRepository,
     InMemoryFlightRepository,
     InMemorySubscriptionRepository,
 )
@@ -94,22 +95,33 @@ def get_container() -> Container:
 
         from app.infrastructure.firestore_repositories import (
             FirestoreBookingRepository,
+            FirestoreDemoPassRepository,
             FirestoreFlightRepository,
             FirestoreSubscriptionRepository,
         )
 
         client = firestore.Client(project=settings.google_cloud_project)
-        flight_repo = FirestoreFlightRepository(client, settings.flight_data_provider)
+        flight_repo = FirestoreFlightRepository(
+            client, f"{settings.flight_data_provider}:all-routes-v2"
+        )
         refresh_flights = lambda: flight_repo.refresh_if_stale(provider)
         booking_repo = FirestoreBookingRepository(client)
         subscription_repo = FirestoreSubscriptionRepository(client)
+        demo_pass_repo = FirestoreDemoPassRepository(client)
         init_firebase(settings.firebase_project_id)
+    if settings.is_local:
+        demo_pass_repo = InMemoryDemoPassRepository()
 
     container = Container(
         search_deals=SearchEmptySeatDealsUseCase(flight_repo, tax_calculator),
         calculate_price=CalculatePriceUseCase(tax_calculator),
         create_booking=CreateBookingUseCase(
-            flight_repo, booking_repo, subscription_repo, tax_calculator, payment_gateway
+            flight_repo,
+            booking_repo,
+            subscription_repo,
+            tax_calculator,
+            payment_gateway,
+            demo_pass_repo,
         ),
         confirm_payment=ConfirmPaymentUseCase(booking_repo, subscription_repo),
         manage_subscription=ManageSubscriptionUseCase(
@@ -117,6 +129,7 @@ def get_container() -> Container:
         ),
         booking_repo=booking_repo,
         subscription_repo=subscription_repo,
+        demo_pass_repo=demo_pass_repo,
         payment_gateway=payment_gateway,
         refresh_flights=refresh_flights,
     )

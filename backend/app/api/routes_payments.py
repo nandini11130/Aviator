@@ -2,24 +2,29 @@ from __future__ import annotations
 
 import logging
 import uuid
+from datetime import datetime, timezone
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.api.deps import get_container, get_current_user_id
 from app.api.schemas import (
+    BookingPaymentOrderOut,
+    CreateBookingRequest,
+    DemoPassOut,
     RazorpayOrderOut,
     RazorpayVerifyRequest,
     SubscribeRequest,
 )
 from app.config import get_settings
 from app.container import Container
-from app.domain.entities import BookingStatus
+from app.domain.entities import BookingStatus, DemoPass
 from app.domain.value_objects import CabinClass
 from app.infrastructure.payment_gateways import RazorpayPaymentGateway
 
 router = APIRouter(prefix="/api/payments", tags=["payments"])
 logger = logging.getLogger(__name__)
+DEMO_PASS_AMOUNT_MINOR = 100
 
 
 def _razorpay_gateway() -> RazorpayPaymentGateway:
@@ -108,11 +113,99 @@ def create_subscription_order(
     )
 
 
-@router.post("/booking-order", status_code=status.HTTP_410_GONE)
-def create_booking_order() -> None:
-    raise HTTPException(
-        status_code=status.HTTP_410_GONE,
-        detail="Flight bookings are demo-only; no booking payment is accepted.",
+@router.get("/demo-pass", response_model=DemoPassOut)
+def get_demo_pass(
+    user_id: str = Depends(get_current_user_id),
+    container: Container = Depends(get_container),
+) -> DemoPassOut:
+    demo_pass = container.demo_pass_repo.get(user_id)
+    return DemoPassOut(
+        active=demo_pass is not None,
+        purchased_at=demo_pass.purchased_at if demo_pass else None,
+    )
+
+
+@router.post("/demo-pass-order", response_model=RazorpayOrderOut)
+def create_demo_pass_order(
+    user_id: str = Depends(get_current_user_id),
+    container: Container = Depends(get_container),
+) -> RazorpayOrderOut:
+    if container.demo_pass_repo.get(user_id):
+        raise HTTPException(status_code=409, detail="Your demo pass is already active.")
+    return _create_order(
+        _razorpay_gateway(),
+        amount=DEMO_PASS_AMOUNT_MINOR,
+        currency="INR",
+        receipt=f"demo-{uuid.uuid4().hex}",
+        notes={"kind": "demo_pass", "user_id": user_id},
+    )
+
+
+@router.post("/dev-demo-pass", response_model=DemoPassOut)
+def activate_local_demo_pass(
+    user_id: str = Depends(get_current_user_id),
+    container: Container = Depends(get_container),
+) -> DemoPassOut:
+    if not get_settings().is_local:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Local demo pass activation is disabled outside development.",
+        )
+    demo_pass = container.demo_pass_repo.get(user_id)
+    if demo_pass is None:
+        demo_pass = DemoPass(
+            user_id=user_id,
+            payment_reference=f"local-test-{uuid.uuid4().hex}",
+            purchased_at=datetime.now(timezone.utc),
+        )
+        container.demo_pass_repo.save(demo_pass)
+    return DemoPassOut(active=True, purchased_at=demo_pass.purchased_at)
+
+
+@router.post("/booking-order", response_model=BookingPaymentOrderOut)
+def create_booking_order(
+    request: CreateBookingRequest,
+    user_id: str = Depends(get_current_user_id),
+    container: Container = Depends(get_container),
+) -> BookingPaymentOrderOut:
+    from app.application.use_cases import SeatUnavailableError, SubscriptionRequiredError
+
+    gateway = _razorpay_gateway()
+    try:
+        booking = container.create_booking.execute(
+            user_id=user_id,
+            flight_id=request.flight_id,
+            cabin_class=request.cabin_class,
+            create_checkout=False,
+            demo=True,
+        )
+    except SubscriptionRequiredError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except SeatUnavailableError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    booking.status = BookingStatus.DEMO_PENDING_PAYMENT
+    container.booking_repo.save(booking)
+    order = _create_order(
+        gateway,
+        amount=booking.total_amount.amount_minor,
+        currency=booking.total_amount.currency,
+        receipt=f"book-{uuid.uuid4().hex}",
+        notes={
+            "kind": "booking",
+            "user_id": user_id,
+            "booking_id": booking.id,
+            "flight_id": booking.flight_id,
+            "cabin_class": booking.cabin_class.value,
+        },
+    )
+    booking.payment_reference = order.order_id
+    container.booking_repo.save(booking)
+    return BookingPaymentOrderOut(
+        **order.model_dump(),
+        booking_id=booking.id,
+        estimated_total=booking.total_amount.to_dict(),
+        demo_only=True,
     )
 
 
@@ -191,13 +284,32 @@ def verify_payment(
         ):
             return {"status": "verified", "kind": "booking"}
         if (
-            booking.status != BookingStatus.PENDING_PAYMENT
+            booking.status == BookingStatus.DEMO_PAID
+            and booking.payment_reference == request.razorpay_payment_id
+        ):
+            return {"status": "verified", "kind": "booking"}
+        if (
+            booking.status != BookingStatus.DEMO_PENDING_PAYMENT
             or booking.payment_reference != request.razorpay_order_id
         ):
             raise HTTPException(status_code=409, detail="Booking is not awaiting this payment.")
-        booking.status = BookingStatus.CONFIRMED
+        booking.status = BookingStatus.DEMO_PAID
         booking.payment_reference = request.razorpay_payment_id
         container.booking_repo.save(booking)
+    elif kind == "demo_pass":
+        if (
+            order.get("amount") != DEMO_PASS_AMOUNT_MINOR
+            or order.get("currency") != "INR"
+        ):
+            raise HTTPException(status_code=400, detail="Demo pass order amount mismatch.")
+        if container.demo_pass_repo.get(user_id) is None:
+            container.demo_pass_repo.save(
+                DemoPass(
+                    user_id=user_id,
+                    payment_reference=request.razorpay_payment_id,
+                    purchased_at=datetime.now(timezone.utc),
+                )
+            )
     else:
         raise HTTPException(status_code=400, detail="Unknown Razorpay order type.")
 

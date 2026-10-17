@@ -12,7 +12,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
-from .entities import Booking, Flight, SeatInventory, Subscription
+from .entities import Booking, DemoPass, Flight, SeatInventory, Subscription
 from .value_objects import CabinClass, Money
 
 
@@ -75,6 +75,14 @@ class SubscriptionRepository(ABC):
 
     @abstractmethod
     def save(self, subscription: Subscription) -> None: ...
+
+
+class DemoPassRepository(ABC):
+    @abstractmethod
+    def get(self, user_id: str) -> DemoPass | None: ...
+
+    @abstractmethod
+    def save(self, demo_pass: DemoPass) -> None: ...
 
 
 class TaxCalculator(ABC):

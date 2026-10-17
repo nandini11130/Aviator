@@ -4,7 +4,7 @@ from app.domain.value_objects import CabinClass
 from app.infrastructure.flight_data_providers import AviationStackFlightDataProvider
 
 
-def test_aviationstack_provider_filters_and_deduplicates_delhi_domestic_flights(monkeypatch):
+def test_aviationstack_provider_keeps_domestic_and_international_routes(monkeypatch):
     future = (datetime.now(timezone.utc) + timedelta(hours=3)).replace(microsecond=0)
     departure = future.isoformat()
     arrival = (future + timedelta(hours=2)).isoformat()
@@ -26,6 +26,12 @@ def test_aviationstack_provider_filters_and_deduplicates_delhi_domestic_flights(
                 "flight": {"iata": "AI9999"},
                 "airline": {"name": "Air India"},
                 "departure": {"iata": "DEL", "scheduled": departure},
+                "arrival": {"iata": "LHR", "scheduled": arrival},
+            },
+            {
+                "flight": {"iata": "BA123"},
+                "airline": {"name": "British Airways"},
+                "departure": {"iata": "BOM", "scheduled": departure},
                 "arrival": {"iata": "LHR", "scheduled": arrival},
             },
         ]
@@ -50,10 +56,13 @@ def test_aviationstack_provider_filters_and_deduplicates_delhi_domestic_flights(
     first_result = provider.fetch_live_inventory()
     second_result = provider.fetch_live_inventory()
 
-    assert captured["dep_iata"] == "DEL"
+    assert "dep_iata" not in captured
     assert captured["limit"] == 100
-    assert len(first_result) == len(CabinClass)
-    assert all(flight.destination == "BOM" for flight, _ in first_result)
+    route_pairs = {
+        (flight.origin, flight.destination) for flight, _ in first_result
+    }
+    assert route_pairs == {("DEL", "BOM"), ("DEL", "LHR"), ("BOM", "LHR")}
+    assert len(first_result) == len(route_pairs) * len(CabinClass)
     assert [inventory.empty_seats for _, inventory in first_result] == [
         inventory.empty_seats for _, inventory in second_result
     ]

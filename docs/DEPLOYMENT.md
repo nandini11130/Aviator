@@ -22,10 +22,11 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:3000, click **Continue as demo user**, activate a local
-demo membership, and create a no-charge demo booking. Everything works
-against in-memory data and the mock payment gateway — no
-Stripe/Firebase/GCP account required yet.
+Open http://localhost:3000 and click **Continue as demo user**. The app uses
+in-memory flight data and local demo access; no Firebase or GCP account is
+required to browse it. To test paid booking checkout, configure Razorpay test
+keys in `backend/.env`; booking checkout is not simulated or marked paid
+without verified Razorpay payment.
 
 ## 1. Create a GCP project
 
@@ -103,9 +104,12 @@ pass it separately with `-FirebaseProjectId <FIREBASE_PROJECT_ID>`.
 This builds `backend/Dockerfile` with Cloud Build and deploys it with
 `ENVIRONMENT=production`. The deployment uses Vertex AI for the Gemini
 concierge, so enable `aiplatform.googleapis.com` and grant the Cloud Run
-service account the **Vertex AI User** role. The script sets
-`GOOGLE_GENAI_USE_VERTEXAI=true` and `GOOGLE_CLOUD_LOCATION` to the selected
-Cloud Run region. After it finishes, grab the service URL:
+service account the **Vertex AI User** role. Cloud Run is deployed in the
+selected region, while Gemini uses Vertex AI's global endpoint to improve
+availability and reduce regional capacity-related 429 errors. Global endpoint
+requests may be processed in any region; use a supported regional endpoint
+instead if processing location must be restricted. After deployment, grab the
+service URL:
 
 ```powershell
 gcloud run services describe aviator-api --project <PROJECT_ID> --region asia-south1 --format "value(status.url)"
@@ -136,11 +140,15 @@ Stripe dashboard → **Developers → Webhooks → Add endpoint** →
 
 ## Razorpay Standard Checkout
 
-Razorpay Standard Checkout is used for membership subscriptions. Flight
-bookings in the hackathon demo are no-charge demo records and do not reserve
-airline inventory or issue tickets. For local development, set
+Razorpay Standard Checkout is used for membership subscriptions, a one-time
+₹1 demo pass, and per-flight demo checkout. The pass unlocks checkout across
+cabin classes; each checkout charges the displayed estimated total. These are
+demo payments only and do not reserve airline inventory or issue tickets.
+Flight search remains free. For local development, set
 `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` in `backend/.env`; only the key ID
-is exposed to the browser.
+is exposed to the browser. When `ENVIRONMENT=local`, the dashboard also offers
+a local-only test-pass activation with no payment so the booking flow can be
+demonstrated safely. The backend rejects that shortcut in production.
 
 For Cloud Run, store both Razorpay values in Secret Manager, grant the
 Cloud Run service account Secret Manager Secret Accessor, then attach them:
@@ -168,8 +176,10 @@ Your app is now live at `https://<PROJECT_ID>.web.app`.
 - [ ] Sign in with Google on the live site
 - [ ] Subscribe to a tier (Razorpay Standard Checkout; test mode recommended)
 - [ ] See scheduled flights and clearly labeled estimated availability
-- [ ] Create a demo booking with a matching active membership; no booking
-      payment is taken and no airline seat is reserved
+- [ ] Purchase the one-time demo pass in Razorpay test mode and confirm it
+      unlocks demo checkout across cabin classes
+- [ ] Start checkout for a flight, verify the displayed estimated amount, and
+      confirm the result remains labeled demo-only with no seat reservation
 - [ ] Chat with the concierge and ask it to find/book a seat
 
 ## Notes on "real-time" flight data
@@ -179,9 +189,9 @@ count; airlines keep that in their own private inventory systems. Three
 adapters are available (`FLIGHT_DATA_PROVIDER`):
 
 - `mock` (default) — synthetic flights/seats, zero setup.
-- `aviationstack` — scheduled flights from Delhi to selected domestic routes
-  using AviationStack's free tier; data refreshes at most once per 24 hours to
-  stay within the free request quota. Seat counts and displayed prices are
+- `aviationstack` — scheduled domestic and international flights returned by
+  AviationStack's free tier; data refreshes at most once per 24 hours to stay
+  within the free request quota. Seat counts and displayed prices are
   estimates, and booking is demo-only. Set `AVIATIONSTACK_API_KEY`.
 - `amadeus` — real flights **and** real `numberOfBookableSeats` from the
   Amadeus Self-Service Flight Offers Search API — the same GDS data

@@ -21,10 +21,8 @@ from app.domain.entities import Flight, SeatInventory
 from app.domain.ports import FlightDataProvider
 from app.domain.value_objects import CabinClass, Money
 
-# Indian domestic trunk + regional routes, served by the major Indian
-# carriers. Airport codes are IATA; Amadeus/AviationStack both recognise
-# them directly, so the same list drives mock, real-schedule, and real-GDS
-# adapters without any translation layer.
+# Indian domestic and international routes, served by major carriers. Airport
+# codes are IATA; Amadeus/AviationStack both recognise them directly.
 _ROUTES = [
     ("DEL", "BOM", "Air India", "AI"),
     ("BOM", "BLR", "IndiGo", "6E"),
@@ -42,6 +40,10 @@ _ROUTES = [
     ("CCU", "GAU", "IndiGo", "6E"),
     ("DEL", "IXC", "Air India", "AI"),
     ("MAA", "BLR", "IndiGo", "6E"),
+    ("DEL", "DXB", "Air India", "AI"),
+    ("DEL", "SIN", "IndiGo", "6E"),
+    ("BOM", "LHR", "British Airways", "BA"),
+    ("BLR", "BKK", "Thai Airways", "TG"),
 ]
 
 _BASE_TOKEN_MINOR: dict[CabinClass, int] = {
@@ -115,7 +117,6 @@ class AviationStackFlightDataProvider(FlightDataProvider):
             params={
                 "access_key": self._api_key,
                 "flight_status": "scheduled",
-                "dep_iata": "DEL",
                 "limit": 100,
             },
             timeout=10.0,
@@ -125,11 +126,6 @@ class AviationStackFlightDataProvider(FlightDataProvider):
 
         results: list[tuple[Flight, SeatInventory]] = []
         now = datetime.now(timezone.utc)
-        domestic_destinations = {
-            destination
-            for origin, destination, _, _ in _ROUTES
-            if origin == "DEL"
-        }
         seen_segments: set[tuple[str, str, str, str]] = set()
         for entry in payload:
             departure_iso = entry.get("departure", {}).get("scheduled")
@@ -140,8 +136,8 @@ class AviationStackFlightDataProvider(FlightDataProvider):
             if (
                 not departure_iso
                 or not arrival_iso
-                or origin != "DEL"
-                or destination not in domestic_destinations
+                or not origin
+                or not destination
                 or not flight_number
             ):
                 continue

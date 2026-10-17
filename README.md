@@ -1,9 +1,10 @@
 # ✈️ Aviator
 
-A subscription marketplace for last-minute empty airline seats. Travellers
-subscribe by cabin class (**Economy / Business / First**) and book any live
-empty seat in that class for a small **token amount + GST**
-(e.g. ₹500 + 5% GST for Economy), right up until departure.
+A flight schedule and demo-booking experience. Flight search is free; a
+one-time **₹1 Razorpay demo pass** unlocks paid demo checkout across cabin
+classes. Each checkout charges the displayed estimated total; monthly
+membership tiers (**Economy / Business / First**) are separate. Demo payments
+do not reserve a real airline seat or issue a ticket.
 
 Built with **Google ADK** (a 4-specialist multi-agent concierge over
 Gemini), **Firebase** (Auth + Firestore + Hosting), and **Cloud Run**.
@@ -43,9 +44,9 @@ npm install
 npm run dev
 ```
 
-Visit http://localhost:3000 → **Continue as demo user** → subscribe →
-book a seat → chat with the concierge. Everything runs against in-memory
-data and a mock payment gateway until you wire up real Firebase/Stripe
+Visit http://localhost:3000 → **Continue as demo user** → browse flights →
+chat with the concierge. Everything runs against in-memory
+data and a mock payment gateway until you wire up real Firebase/Razorpay
 credentials (see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)).
 
 ## Run backend tests

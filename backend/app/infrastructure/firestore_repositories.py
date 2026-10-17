@@ -8,14 +8,29 @@ from datetime import datetime, timedelta, timezone
 
 from google.cloud import firestore
 
-from app.domain.entities import Booking, BookingStatus, Flight, SeatInventory, Subscription, SubscriptionStatus
-from app.domain.ports import BookingRepository, FlightDataProvider, FlightRepository, SubscriptionRepository
+from app.domain.entities import (
+    Booking,
+    BookingStatus,
+    DemoPass,
+    Flight,
+    SeatInventory,
+    Subscription,
+    SubscriptionStatus,
+)
+from app.domain.ports import (
+    BookingRepository,
+    DemoPassRepository,
+    FlightDataProvider,
+    FlightRepository,
+    SubscriptionRepository,
+)
 from app.domain.value_objects import CabinClass, Money
 
 _FLIGHTS = "flights"
 _INVENTORY = "seat_inventory"
 _BOOKINGS = "bookings"
 _SUBSCRIPTIONS = "subscriptions"
+_DEMO_PASSES = "demo_passes"
 _FLIGHT_REFRESH = "flight_data_refresh"
 
 
@@ -262,5 +277,29 @@ class FirestoreSubscriptionRepository(SubscriptionRepository):
                 "started_at": subscription.started_at,
                 "renews_at": subscription.renews_at,
                 "payment_reference": subscription.payment_reference,
+            }
+        )
+
+
+class FirestoreDemoPassRepository(DemoPassRepository):
+    def __init__(self, client: firestore.Client):
+        self._client = client
+
+    def get(self, user_id: str):
+        doc = self._client.collection(_DEMO_PASSES).document(user_id).get()
+        if not doc.exists:
+            return None
+        data = doc.to_dict()
+        return DemoPass(
+            user_id=user_id,
+            payment_reference=data["payment_reference"],
+            purchased_at=data["purchased_at"],
+        )
+
+    def save(self, demo_pass: DemoPass) -> None:
+        self._client.collection(_DEMO_PASSES).document(demo_pass.user_id).set(
+            {
+                "payment_reference": demo_pass.payment_reference,
+                "purchased_at": demo_pass.purchased_at,
             }
         )
