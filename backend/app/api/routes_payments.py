@@ -64,7 +64,10 @@ def _create_order(
         if response.status_code in (401, 403):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Razorpay authentication failed. Check the deployed key pair.",
+                detail=(
+                    "Razorpay rejected this server's request. Verify the key pair "
+                    "and check whether the Razorpay account restricts API access by IP."
+                ),
             ) from exc
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
