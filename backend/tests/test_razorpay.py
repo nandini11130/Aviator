@@ -5,7 +5,7 @@ import httpx
 import pytest
 from fastapi import HTTPException
 
-from app.api.routes_payments import _create_order
+from app.api.routes_payments import _create_order, create_booking_order
 from app.infrastructure.payment_gateways import RazorpayPaymentGateway
 
 
@@ -40,6 +40,13 @@ def test_create_order_rejects_amount_below_razorpay_minimum():
 
     with pytest.raises(ValueError, match="at least 100 paise"):
         gateway.create_order(99, "INR", "receipt", {})
+
+
+def test_flight_booking_order_endpoint_is_disabled_for_demo_bookings():
+    with pytest.raises(HTTPException) as raised:
+        create_booking_order()
+
+    assert raised.value.status_code == 410
 
 
 def test_verify_order_payment_checks_signature_and_paid_order(monkeypatch):

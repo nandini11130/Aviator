@@ -4,7 +4,7 @@ running on Cloud Run / Firebase with the right service account bound.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from google.cloud import firestore
 
@@ -16,6 +16,11 @@ _FLIGHTS = "flights"
 _INVENTORY = "seat_inventory"
 _BOOKINGS = "bookings"
 _SUBSCRIPTIONS = "subscriptions"
+_FLIGHT_REFRESH = "flight_data_refresh"
+
+
+class FlightDataRefreshError(RuntimeError):
+    """Raised when the provider returns no schedule data to refresh."""
 
 
 def _inventory_doc_id(flight_id: str, cabin_class: CabinClass) -> str:
@@ -23,47 +28,105 @@ def _inventory_doc_id(flight_id: str, cabin_class: CabinClass) -> str:
 
 
 class FirestoreFlightRepository(FlightRepository):
-    """Reads/writes flights + seat inventory. Call `seed_if_empty` once at
-    startup (or on a schedule) to refresh inventory from a
-    `FlightDataProvider`.
-    """
+    """Reads cached provider schedules and refreshes them at most daily."""
 
-    def __init__(self, client: firestore.Client):
+    def __init__(self, client: firestore.Client, source: str):
         self._client = client
+        self._source = source
 
-    def seed_if_empty(self, provider: FlightDataProvider) -> None:
-        if next(self._client.collection(_FLIGHTS).limit(1).stream(), None):
+    def refresh_if_stale(self, provider: FlightDataProvider) -> None:
+        now = datetime.now(timezone.utc)
+        refresh_ref = self._client.collection(_FLIGHT_REFRESH).document(self._source)
+
+        @firestore.transactional
+        def claim_refresh(transaction: firestore.Transaction) -> bool:
+            snapshot = refresh_ref.get(transaction=transaction)
+            refresh_after = snapshot.get("refresh_after") if snapshot.exists else None
+            if refresh_after and refresh_after > now:
+                return False
+            transaction.set(
+                refresh_ref,
+                {"refresh_after": now + timedelta(minutes=5)},
+                merge=True,
+            )
+            return True
+
+        if not claim_refresh(self._client.transaction()):
             return
-        for flight, inventory in provider.fetch_live_inventory():
-            self._client.collection(_FLIGHTS).document(flight.id).set(
-                {
-                    "flight_number": flight.flight_number,
-                    "airline": flight.airline,
-                    "origin": flight.origin,
-                    "destination": flight.destination,
-                    "departure_time": flight.departure_time,
-                    "arrival_time": flight.arrival_time,
-                }
-            )
-            self._client.collection(_INVENTORY).document(
-                _inventory_doc_id(flight.id, inventory.cabin_class)
-            ).set(
-                {
-                    "flight_id": inventory.flight_id,
-                    "cabin_class": inventory.cabin_class.value,
-                    "empty_seats": inventory.empty_seats,
-                    "base_token_amount_minor": inventory.base_token_amount.amount_minor,
-                    "currency": inventory.base_token_amount.currency,
-                    "updated_at": inventory.updated_at,
-                }
-            )
+
+        entries = provider.fetch_live_inventory()
+        if not entries:
+            raise FlightDataRefreshError("Flight provider returned no schedules.")
+
+        flights: dict[str, dict] = {}
+        inventories: dict[str, dict] = {}
+        for flight, inventory in entries:
+            flights[flight.id] = {
+                "flight_number": flight.flight_number,
+                "airline": flight.airline,
+                "origin": flight.origin,
+                "destination": flight.destination,
+                "departure_time": flight.departure_time,
+                "arrival_time": flight.arrival_time,
+                "source": self._source,
+            }
+            inventories[_inventory_doc_id(flight.id, inventory.cabin_class)] = {
+                "flight_id": inventory.flight_id,
+                "cabin_class": inventory.cabin_class.value,
+                "empty_seats": inventory.empty_seats,
+                "base_token_amount_minor": inventory.base_token_amount.amount_minor,
+                "currency": inventory.base_token_amount.currency,
+                "updated_at": inventory.updated_at,
+                "source": self._source,
+            }
+
+        flight_collection = self._client.collection(_FLIGHTS)
+        inventory_collection = self._client.collection(_INVENTORY)
+        operations: list[tuple[firestore.DocumentReference, dict | None]] = [
+            (flight_collection.document(flight_id), data)
+            for flight_id, data in flights.items()
+        ] + [
+            (inventory_collection.document(inventory_id), data)
+            for inventory_id, data in inventories.items()
+        ]
+
+        for doc in flight_collection.stream():
+            if doc.to_dict().get("source") == self._source and doc.id not in flights:
+                operations.append((doc.reference, None))
+        for doc in inventory_collection.stream():
+            if doc.to_dict().get("source") == self._source and doc.id not in inventories:
+                operations.append((doc.reference, None))
+
+        for offset in range(0, len(operations), 450):
+            batch = self._client.batch()
+            for reference, data in operations[offset : offset + 450]:
+                if data is None:
+                    batch.delete(reference)
+                else:
+                    batch.set(reference, data)
+            batch.commit()
+
+        refresh_ref.set(
+            {
+                "updated_at": now,
+                "refresh_after": now + timedelta(hours=24),
+            },
+            merge=True,
+        )
 
     def list_empty_seat_deals(self, cabin_class: CabinClass | None = None):
-        query = self._client.collection(_INVENTORY).where("empty_seats", ">", 0)
-        if cabin_class is not None:
-            query = query.where("cabin_class", "==", cabin_class.value)
         results = []
-        for doc in query.stream():
+        for doc in self._client.collection(_INVENTORY).stream():
+            data = doc.to_dict()
+            if (
+                data.get("source") != self._source
+                or data.get("empty_seats", 0) <= 0
+                or (
+                    cabin_class is not None
+                    and data.get("cabin_class") != cabin_class.value
+                )
+            ):
+                continue
             inventory = self._inventory_from_doc(doc)
             flight = self.get_flight(inventory.flight_id)
             if flight:
@@ -73,7 +136,7 @@ class FirestoreFlightRepository(FlightRepository):
 
     def get_flight(self, flight_id: str):
         doc = self._client.collection(_FLIGHTS).document(flight_id).get()
-        if not doc.exists:
+        if not doc.exists or doc.to_dict().get("source") != self._source:
             return None
         data = doc.to_dict()
         return Flight(
@@ -90,7 +153,7 @@ class FirestoreFlightRepository(FlightRepository):
         doc = self._client.collection(_INVENTORY).document(
             _inventory_doc_id(flight_id, cabin_class)
         ).get()
-        if not doc.exists:
+        if not doc.exists or doc.to_dict().get("source") != self._source:
             return None
         return self._inventory_from_doc(doc)
 

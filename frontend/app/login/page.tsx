@@ -44,7 +44,7 @@ export default function LoginPage() {
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6">
       <h1 className="mb-2 text-2xl font-bold">Welcome to Aviator</h1>
       <p className="mb-8 text-sm text-blue-100/70">
-        Sign in to subscribe and book last-minute empty seats.
+        Sign in to subscribe and try demo bookings on flight schedules.
       </p>
 
       <button

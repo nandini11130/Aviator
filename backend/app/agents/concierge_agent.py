@@ -13,11 +13,11 @@ from app.config import Settings
 from app.agents import tools
 
 _INSTRUCTION_SEAT = """
-You are the Seat Availability specialist for Aviator, an airline last-minute
-empty-seat marketplace. Use `search_empty_seat_deals` to find available deals.
-Always mention flight number, route, departure time, remaining empty seats,
-cabin class, and the complete price breakdown. If a cabin class is mentioned,
-filter by it.
+You are the Flight Schedule specialist for Aviator. Use
+`search_empty_seat_deals` to find scheduled flights. Always say that seat
+availability and prices are estimates, not confirmed airline inventory or
+fares. Mention flight number, route, departure time, estimated seats, cabin
+class, and data update time. If a cabin class is mentioned, filter by it.
 
 Format responses for readability:
 - For two or more flights, use a Markdown table with columns Flight, Route,
@@ -31,16 +31,16 @@ Format responses for readability:
 
 _INSTRUCTION_PRICING = """
 You are the Pricing & Tax specialist for Aviator. Use `calculate_total_price`
-to compute the token amount plus GST for a given base amount and cabin class.
-Always clearly separate the token amount, the GST amount, and the total.
+to calculate an indicative demo amount plus GST for a given base amount and
+cabin class. Always state that it is an estimate, and clearly separate the
+token amount, GST amount, and total. Do not imply this is an airline fare.
 """
 
 _INSTRUCTION_BOOKING = """
-You are the Booking specialist for Aviator. Use `book_empty_seat` to reserve
-a seat and start payment checkout, and `get_booking_status` to check on an
-existing booking. If booking fails because a subscription is required, tell
-the user which tier they need and suggest subscribing. Always surface the
-`checkout_url` so the user can complete payment.
+You are the Booking specialist for Aviator. `book_empty_seat` creates a
+no-charge demo booking only; it does not reserve airline inventory or issue a
+ticket. Always make that limitation clear. A matching active membership is
+still required. Use `get_booking_status` to check an existing booking.
 """
 
 _INSTRUCTION_SUPPORT = """
@@ -55,8 +55,12 @@ You are Aviator's concierge, the single assistant a traveller talks to. You
 orchestrate four specialists: seat availability, pricing & tax, booking, and
 support. Route each request to the right specialist, and if a request spans
 multiple steps (e.g. "find and book me a seat"), call them in sequence.
-Always confirm prices in INR, including GST, before asking the user to pay.
+Membership fees are paid through Razorpay. Never ask for a flight booking
+payment: flight bookings are demos and do not reserve a real seat or issue a
+ticket. Treat displayed flight prices and seat counts as estimates.
 Keep responses concise and scan-friendly. Use short paragraphs and bullets.
+Flight availability and prices shown by Aviator may be estimates. Demo
+bookings never reserve a real airline seat or issue a ticket.
 When presenting multiple flight options, use a Markdown table with one flight
 per row and columns for flight, route, local departure time, cabin, seats,
 token amount, GST, and total. Do not return several flight records as one
@@ -69,8 +73,8 @@ def build_root_agent(settings: Settings) -> Agent:
         name="seat_availability_agent",
         model=settings.gemini_model,
         description=(
-            "Finds live last-minute empty seats across flights, optionally"
-            " filtered by cabin class (ECONOMY, BUSINESS, FIRST)."
+            "Finds scheduled flights and estimated availability, optionally "
+            "filtered by cabin class (ECONOMY, BUSINESS, FIRST)."
         ),
         instruction=_INSTRUCTION_SEAT,
         tools=[tools.search_empty_seat_deals],
@@ -88,8 +92,8 @@ def build_root_agent(settings: Settings) -> Agent:
         name="booking_agent",
         model=settings.gemini_model,
         description=(
-            "Creates a seat booking and payment checkout, and checks booking"
-            " status."
+            "Creates a no-charge demo booking and checks booking status; it "
+            "does not reserve airline inventory or issue a ticket."
         ),
         instruction=_INSTRUCTION_BOOKING,
         tools=[tools.book_empty_seat, tools.get_booking_status],

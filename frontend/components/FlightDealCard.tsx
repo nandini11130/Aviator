@@ -19,12 +19,18 @@ export function FlightDealCard({ deal, canBook, busy, onBook }: FlightDealCardPr
           {deal.origin} → {deal.destination} · departs {departure.toLocaleString()}
         </p>
         <p className="mt-1 text-xs uppercase tracking-wide text-aviator-gold">
-          {deal.cabin_class} · {deal.empty_seats} seat{deal.empty_seats === 1 ? "" : "s"} left
+          {deal.cabin_class} · {deal.availability_is_estimated ? "estimated " : ""}
+          {deal.empty_seats} seat
+          {deal.empty_seats === 1 ? "" : "s"}
+        </p>
+        <p className="mt-1 text-xs text-blue-100/50">
+          {deal.data_source} · updated {new Date(deal.data_updated_at).toLocaleString()}
         </p>
       </div>
       <div className="text-right">
         <p className="text-lg font-bold">{formatMoney(deal.price.total)}</p>
         <p className="text-xs text-blue-100/60">
+          {deal.price_is_estimated ? "Estimate · " : ""}
           {formatMoney(deal.price.token_amount)} + {formatMoney(deal.price.tax_amount)} GST
         </p>
         <button
@@ -32,7 +38,7 @@ export function FlightDealCard({ deal, canBook, busy, onBook }: FlightDealCardPr
           onClick={() => onBook(deal)}
           className="mt-2 rounded-lg bg-aviator-gold px-4 py-1.5 text-sm font-semibold text-aviator-midnight disabled:opacity-40"
         >
-          {busy ? "Booking..." : "Book seat"}
+          {busy ? "Saving..." : "Demo book"}
         </button>
       </div>
     </div>

@@ -21,6 +21,7 @@ export default function DashboardPage() {
   const [busyTier, setBusyTier] = useState<CabinClass | null>(null);
   const [busyFlightId, setBusyFlightId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && !userId) {
@@ -79,28 +80,15 @@ export default function DashboardPage() {
   const handleBook = async (deal: Deal) => {
     setBusyFlightId(deal.flight_id);
     setError(null);
+    setNotice(null);
     try {
-      const booking = await callApi<Booking>("/api/bookings", {
+      await callApi<Booking>("/api/bookings", {
         method: "POST",
         body: JSON.stringify({ flight_id: deal.flight_id, cabin_class: deal.cabin_class }),
       });
-      const order = await callApi<{
-        key_id: string;
-        order_id: string;
-        amount: number;
-        currency: string;
-      }>("/api/payments/booking-order", {
-        method: "POST",
-        body: JSON.stringify({ booking_id: booking.id }),
-      });
-      const payment = await openRazorpayCheckout(
-        order,
-        `${deal.cabin_class} seat on ${deal.flight_number}`
+      setNotice(
+        "Demo booking saved. It does not reserve an airline seat or issue a ticket; no booking payment was taken."
       );
-      await callApi("/api/payments/verify", {
-        method: "POST",
-        body: JSON.stringify(payment),
-      });
       await refresh();
     } catch (err) {
       setError((err as Error).message);
@@ -127,6 +115,11 @@ export default function DashboardPage() {
           {error}
         </div>
       )}
+      {notice && (
+        <div className="mb-6 rounded-xl border border-emerald-400/30 bg-emerald-500/10 p-4 text-sm text-emerald-100">
+          {notice}
+        </div>
+      )}
 
       <section className="mb-10">
         <h2 className="mb-3 text-lg font-semibold">Your membership</h2>
@@ -146,10 +139,19 @@ export default function DashboardPage() {
       </section>
 
       <section className="mb-10">
-        <h2 className="mb-3 text-lg font-semibold">Live last-minute empty seats</h2>
+        <h2 className="mb-3 text-lg font-semibold">Flight schedules</h2>
+        <p className="mb-4 rounded-xl border border-aviator-gold/20 bg-aviator-gold/5 p-4 text-sm text-blue-100/80">
+          Schedule data is from AviationStack. Seat availability and prices are
+          estimates, not airline inventory or fares. Demo bookings are available
+          to matching members but do not reserve a seat or issue a ticket; no
+          booking payment is taken. Membership subscriptions still use Razorpay
+          and are charged.
+        </p>
         <div className="space-y-3">
           {deals.length === 0 && (
-            <p className="text-sm text-blue-100/60">No empty seats right now — check back soon.</p>
+            <p className="text-sm text-blue-100/60">
+              No scheduled flights with estimated availability were found. Try again later.
+            </p>
           )}
           {deals.map((deal) => (
             <FlightDealCard
@@ -175,7 +177,11 @@ export default function DashboardPage() {
               <span>
                 {booking.flight_id} · {booking.cabin_class}
               </span>
-              <span className="font-semibold">{booking.status}</span>
+              <span className="font-semibold">
+                {booking.status === "DEMO_CONFIRMED"
+                  ? "Demo only · not a ticket"
+                  : booking.status}
+              </span>
             </div>
           ))}
         </div>

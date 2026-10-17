@@ -79,6 +79,28 @@ def test_booking_succeeds_and_decrements_inventory(flight_repo, booking_repo, su
     assert remaining.empty_seats == seats_before - 1
 
 
+def test_demo_booking_requires_membership_but_does_not_charge_or_decrement_inventory(
+    flight_repo, booking_repo, subscription_repo
+):
+    manage_subscription = ManageSubscriptionUseCase(subscription_repo, MockPaymentGateway(), "INR")
+    manage_subscription.activate("user-1", CabinClass.ECONOMY)
+
+    use_case = CreateBookingUseCase(
+        flight_repo, booking_repo, subscription_repo, IndiaGstCalculator(), MockPaymentGateway()
+    )
+    flight, inventory_before = flight_repo.list_empty_seat_deals(CabinClass.ECONOMY)[0]
+    seats_before = inventory_before.empty_seats
+
+    booking = use_case.execute(
+        "user-1", flight.id, CabinClass.ECONOMY, demo=True
+    )
+
+    assert booking.status.value == "DEMO_CONFIRMED"
+    assert booking.checkout_url is None
+    assert booking.payment_reference is None
+    assert flight_repo.get_seat_inventory(flight.id, CabinClass.ECONOMY).empty_seats == seats_before
+
+
 def test_booking_fails_once_seats_are_exhausted(flight_repo, booking_repo, subscription_repo):
     manage_subscription = ManageSubscriptionUseCase(subscription_repo, MockPaymentGateway(), "INR")
     manage_subscription.activate("user-1", CabinClass.FIRST)

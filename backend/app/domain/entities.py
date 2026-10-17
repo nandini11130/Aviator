@@ -34,6 +34,7 @@ class SeatInventory:
 class BookingStatus(str, Enum):
     PENDING_PAYMENT = "PENDING_PAYMENT"
     CONFIRMED = "CONFIRMED"
+    DEMO_CONFIRMED = "DEMO_CONFIRMED"
     CANCELLED = "CANCELLED"
     EXPIRED = "EXPIRED"
 

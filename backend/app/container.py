@@ -6,6 +6,7 @@ knows which concrete infrastructure adapters are in play.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Callable
 
 from app.application.use_cases import (
     CalculatePriceUseCase,
@@ -27,3 +28,4 @@ class Container:
     booking_repo: BookingRepository
     subscription_repo: SubscriptionRepository
     payment_gateway: PaymentGateway
+    refresh_flights: Callable[[], None]

@@ -21,6 +21,10 @@ export interface Deal {
   cabin_class: CabinClass;
   empty_seats: number;
   price: PriceBreakdown;
+  data_source: string;
+  availability_is_estimated: boolean;
+  price_is_estimated: boolean;
+  data_updated_at: string;
 }
 
 export interface Booking {

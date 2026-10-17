@@ -3,9 +3,9 @@ import { Providers } from "@/components/Providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Aviator — Last-minute empty seats, member prices",
+  title: "Aviator — Flight schedules and demo bookings",
   description:
-    "Subscribe by cabin class and book last-minute empty seats for a small token amount plus GST.",
+    "Explore flight schedules with estimated seat availability and prices. Memberships unlock no-charge demo bookings.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

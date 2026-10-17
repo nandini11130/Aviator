@@ -100,6 +100,7 @@ class CreateBookingUseCase:
         flight_id: str,
         cabin_class: CabinClass,
         create_checkout: bool = True,
+        demo: bool = False,
     ) -> Booking:
         subscription = self._subscription_repo.get_active(user_id)
         if (
@@ -116,7 +117,7 @@ class CreateBookingUseCase:
         if not inventory or inventory.empty_seats <= 0:
             raise SeatUnavailableError("No empty seats left on this flight.")
 
-        if not self._flight_repo.decrement_seat(flight_id, cabin_class):
+        if not demo and not self._flight_repo.decrement_seat(flight_id, cabin_class):
             raise SeatUnavailableError("Seat was just taken by another traveller.")
 
         price = CalculatePriceUseCase(self._tax_calculator).execute(
@@ -129,13 +130,17 @@ class CreateBookingUseCase:
             cabin_class=cabin_class,
             token_amount=price.token_amount,
             tax_amount=price.tax_amount,
-            status=BookingStatus.PENDING_PAYMENT,
+            status=(
+                BookingStatus.DEMO_CONFIRMED
+                if demo
+                else BookingStatus.PENDING_PAYMENT
+            ),
             payment_reference=None,
             checkout_url=None,
             created_at=datetime.now(timezone.utc),
         )
 
-        if create_checkout:
+        if create_checkout and not demo:
             flight = self._flight_repo.get_flight(flight_id)
             description = (
                 f"Aviator last-minute {cabin_class.value.title()} seat "

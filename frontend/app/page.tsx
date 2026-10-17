@@ -37,13 +37,13 @@ const steps = [
   },
   {
     number: "02",
-    title: "Explore seat deals",
-    description: "Browse last-minute flight opportunities and compare routes, departure times, and prices.",
+    title: "Explore flight schedules",
+    description: "Browse selected Delhi domestic schedules with clearly labeled estimated availability and prices.",
   },
   {
     number: "03",
-    title: "Book with confidence",
-    description: "See the token amount and GST before checkout, then complete payment securely.",
+    title: "Try a demo booking",
+    description: "Save a no-charge demo booking with a matching membership. It does not reserve a seat or issue a ticket.",
   },
 ];
 
@@ -80,16 +80,16 @@ export default function LandingPage() {
         <div className="max-w-2xl">
           <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-aviator-gold/20 bg-aviator-gold/[0.08] px-3.5 py-2 text-xs font-medium tracking-wide text-aviator-gold sm:text-sm">
             <span className="h-1.5 w-1.5 rounded-full bg-aviator-gold" />
-            A better way to fly last minute
+            Flight schedule demo
           </div>
           <h1 className="text-5xl font-semibold leading-[1.07] tracking-[-0.045em] sm:text-6xl lg:text-[4.35rem]">
-            The seat you want.
+            Find your next flight.
             <br />
-            <span className="text-aviator-gold">The price you don&apos;t expect.</span>
+            <span className="text-aviator-gold">Explore routes with Aviator.</span>
           </h1>
           <p className="mt-6 max-w-xl text-base leading-7 text-slate-300 sm:text-lg sm:leading-8">
-            Discover last-minute seat opportunities across your favourite cabin.
-            Join a membership, find a flight, and make your next trip happen.
+            Explore scheduled flights and estimated cabin availability. Join a
+            membership to try the Aviator demo experience.
           </p>
 
           <div className="mt-9 flex flex-col gap-3 sm:flex-row">
@@ -115,7 +115,7 @@ export default function LandingPage() {
               <span className="text-aviator-gold">✦</span> Secure checkout
             </span>
             <span className="flex items-center gap-2">
-              <span className="text-aviator-gold">✦</span> Price breakdown upfront
+              <span className="text-aviator-gold">✦</span> Estimates clearly labeled
             </span>
           </div>
         </div>
@@ -224,7 +224,8 @@ export default function LandingPage() {
             <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">Pick your cabin.</h2>
           </div>
           <p className="max-w-md text-sm leading-6 text-slate-400">
-            Choose a membership to explore deals in that cabin. Booking prices are shown with GST before payment.
+            Choose a membership to explore schedules for that cabin. Membership
+            fees are charged; demo bookings do not have a booking payment.
           </p>
         </div>
 
@@ -252,11 +253,13 @@ export default function LandingPage() {
               </p>
               <div className="my-6 h-px bg-white/10" />
               <p className="text-sm text-slate-300">
-                Seat token from <span className="font-semibold text-white">₹{tier.perSeatFromInr}</span>
-                <span className="text-slate-400"> + GST</span>
+                Demo price estimate from{" "}
+                <span className="font-semibold text-white">₹{tier.perSeatFromInr}</span>
+                <span className="text-slate-400"> + estimated GST</span>
               </p>
               <p className="mt-3 flex-1 text-sm leading-6 text-slate-400">
-                Access last-minute {tier.label.toLowerCase()} cabin opportunities on available routes.
+                Explore scheduled {tier.label.toLowerCase()} cabin flights. Availability and
+                prices are estimates, not confirmed airline inventory or fares.
               </p>
               <Link
                 href="/login"
@@ -292,7 +295,10 @@ export default function LandingPage() {
       <footer className="relative z-10 border-t border-white/[0.08]">
         <div className="mx-auto flex max-w-7xl flex-col gap-3 px-5 py-6 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-12">
           <span className="font-semibold tracking-wide text-slate-300">✈ Aviator</span>
-          <span>Membership unlocks access to listed opportunities. Availability and fares are confirmed at booking.</span>
+          <span>
+            Schedules are informational; seat counts and prices are estimates.
+            Demo bookings do not reserve seats or issue tickets.
+          </span>
         </div>
       </footer>
     </main>

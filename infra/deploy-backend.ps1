@@ -16,7 +16,10 @@ param(
   [Parameter(Mandatory = $true)][string]$ProjectId,
   [string]$FirebaseProjectId,
   [string]$Region = "asia-south1",
-  [string]$ServiceName = "aviator-api"
+  [string]$ServiceName = "aviator-api",
+  [ValidateSet("mock", "aviationstack", "amadeus")]
+  [string]$FlightDataProvider,
+  [string]$AviationStackSecretName
 )
 
 $ErrorActionPreference = "Stop"
@@ -31,13 +34,30 @@ try {
   # --source builds the Dockerfile with Cloud Build and deploys in one step.
   # Secrets (Stripe keys, AI Studio key) should be set with --set-secrets
   # instead of --set-env-vars once you have them in Secret Manager.
-  gcloud run deploy $ServiceName `
-    --project $ProjectId `
-    --region $Region `
-    --source . `
-    --platform managed `
-    --allow-unauthenticated `
-    --update-env-vars "ENVIRONMENT=production,GOOGLE_CLOUD_PROJECT=$ProjectId,FIREBASE_PROJECT_ID=$FirebaseProjectId,GOOGLE_GENAI_USE_VERTEXAI=true,GOOGLE_CLOUD_LOCATION=$Region,CORS_ALLOW_ORIGINS=https://$FirebaseProjectId.web.app"
+  $environmentVariables = "ENVIRONMENT=production,GOOGLE_CLOUD_PROJECT=$ProjectId,FIREBASE_PROJECT_ID=$FirebaseProjectId,GOOGLE_GENAI_USE_VERTEXAI=true,GOOGLE_CLOUD_LOCATION=$Region,CORS_ALLOW_ORIGINS=https://$FirebaseProjectId.web.app"
+  if ($FlightDataProvider) {
+    $environmentVariables += ",FLIGHT_DATA_PROVIDER=$FlightDataProvider"
+  }
+
+  $deployArgs = @(
+    "run", "deploy", $ServiceName,
+    "--project", $ProjectId,
+    "--region", $Region,
+    "--source", ".",
+    "--platform", "managed",
+    "--allow-unauthenticated",
+    "--update-env-vars", $environmentVariables
+  )
+  if ($FlightDataProvider -eq "aviationstack") {
+    if (-not $AviationStackSecretName) {
+      throw "Pass -AviationStackSecretName with the Secret Manager secret ID."
+    }
+    $deployArgs += @(
+      "--update-secrets",
+      "AVIATIONSTACK_API_KEY=${AviationStackSecretName}:latest"
+    )
+  }
+  gcloud @deployArgs
 
   Write-Host "Done. Fetch the service URL with:"
   Write-Host "  gcloud run services describe $ServiceName --project $ProjectId --region $Region --format='value(status.url)'"

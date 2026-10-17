@@ -105,15 +105,19 @@ class AviationStackFlightDataProvider(FlightDataProvider):
     you have one, behind the same `FlightDataProvider` interface.
     """
 
-    def __init__(self, api_key: str, base_url: str = "http://api.aviationstack.com/v1"):
+    def __init__(self, api_key: str, base_url: str = "https://api.aviationstack.com/v1"):
         self._api_key = api_key
         self._base_url = base_url
-        self._random = random.Random()
 
     def fetch_live_inventory(self) -> list[tuple[Flight, SeatInventory]]:
         response = httpx.get(
             f"{self._base_url}/flights",
-            params={"access_key": self._api_key, "flight_status": "scheduled"},
+            params={
+                "access_key": self._api_key,
+                "flight_status": "scheduled",
+                "dep_iata": "DEL",
+                "limit": 100,
+            },
             timeout=10.0,
         )
         response.raise_for_status()
@@ -121,22 +125,46 @@ class AviationStackFlightDataProvider(FlightDataProvider):
 
         results: list[tuple[Flight, SeatInventory]] = []
         now = datetime.now(timezone.utc)
+        domestic_destinations = {
+            destination
+            for origin, destination, _, _ in _ROUTES
+            if origin == "DEL"
+        }
+        seen_segments: set[tuple[str, str, str, str]] = set()
         for entry in payload:
             departure_iso = entry.get("departure", {}).get("scheduled")
             arrival_iso = entry.get("arrival", {}).get("scheduled")
-            if not departure_iso or not arrival_iso:
+            origin = entry.get("departure", {}).get("iata")
+            destination = entry.get("arrival", {}).get("iata")
+            flight_number = entry.get("flight", {}).get("iata")
+            if (
+                not departure_iso
+                or not arrival_iso
+                or origin != "DEL"
+                or destination not in domestic_destinations
+                or not flight_number
+            ):
                 continue
+            departure_time = datetime.fromisoformat(departure_iso)
+            if departure_time <= now:
+                continue
+            segment_key = (origin, destination, departure_iso, arrival_iso)
+            if segment_key in seen_segments:
+                continue
+            seen_segments.add(segment_key)
+            flight_id = f"{flight_number}-{departure_iso}"
             flight = Flight(
-                id=entry["flight"]["iata"] + departure_iso,
-                flight_number=entry["flight"]["iata"],
+                id=flight_id,
+                flight_number=flight_number,
                 airline=entry.get("airline", {}).get("name", "Unknown"),
-                origin=entry.get("departure", {}).get("iata", "???"),
-                destination=entry.get("arrival", {}).get("iata", "???"),
-                departure_time=datetime.fromisoformat(departure_iso),
+                origin=origin,
+                destination=destination,
+                departure_time=departure_time,
                 arrival_time=datetime.fromisoformat(arrival_iso),
             )
             for cabin_class in CabinClass:
-                empty_seats = self._random.randint(0, _MAX_EMPTY_SEATS[cabin_class])
+                estimate = random.Random(f"{flight_id}:{cabin_class.value}")
+                empty_seats = estimate.randint(0, _MAX_EMPTY_SEATS[cabin_class])
                 results.append(
                     (
                         flight,

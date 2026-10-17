@@ -42,11 +42,19 @@ from google.adk.runners import InMemoryRunner
 
 
 def _build_flight_provider(settings: Settings) -> FlightDataProvider:
-    if settings.flight_data_provider == "amadeus" and settings.amadeus_api_key:
+    if settings.flight_data_provider == "amadeus":
+        if not settings.amadeus_api_key or not settings.amadeus_api_secret:
+            raise ValueError("Amadeus is selected but its API credentials are not configured.")
         return AmadeusFlightOffersProvider(
-            settings.amadeus_api_key, settings.amadeus_api_secret, settings.amadeus_environment
+            settings.amadeus_api_key,
+            settings.amadeus_api_secret,
+            settings.amadeus_environment,
         )
-    if settings.flight_data_provider == "aviationstack" and settings.aviationstack_api_key:
+    if settings.flight_data_provider == "aviationstack":
+        if not settings.aviationstack_api_key:
+            raise ValueError(
+                "AviationStack is selected but AVIATIONSTACK_API_KEY is not configured."
+            )
         return AviationStackFlightDataProvider(settings.aviationstack_api_key)
     return MockFlightDataProvider()
 
@@ -80,6 +88,7 @@ def get_container() -> Container:
         flight_repo = InMemoryFlightRepository(provider)
         booking_repo = InMemoryBookingRepository()
         subscription_repo = InMemorySubscriptionRepository()
+        refresh_flights = lambda: None
     else:
         from google.cloud import firestore
 
@@ -90,8 +99,8 @@ def get_container() -> Container:
         )
 
         client = firestore.Client(project=settings.google_cloud_project)
-        flight_repo = FirestoreFlightRepository(client)
-        flight_repo.seed_if_empty(provider)
+        flight_repo = FirestoreFlightRepository(client, settings.flight_data_provider)
+        refresh_flights = lambda: flight_repo.refresh_if_stale(provider)
         booking_repo = FirestoreBookingRepository(client)
         subscription_repo = FirestoreSubscriptionRepository(client)
         init_firebase(settings.firebase_project_id)
@@ -109,6 +118,7 @@ def get_container() -> Container:
         booking_repo=booking_repo,
         subscription_repo=subscription_repo,
         payment_gateway=payment_gateway,
+        refresh_flights=refresh_flights,
     )
     agent_tools.bind_container(container)
     return container

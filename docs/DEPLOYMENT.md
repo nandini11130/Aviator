@@ -22,9 +22,10 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:3000, click **Continue as demo user**, subscribe to a
-tier, and book a seat. Everything works against in-memory data and the mock
-payment gateway — no Stripe/Firebase/GCP account required yet.
+Open http://localhost:3000, click **Continue as demo user**, activate a local
+demo membership, and create a no-charge demo booking. Everything works
+against in-memory data and the mock payment gateway — no
+Stripe/Firebase/GCP account required yet.
 
 ## 1. Create a GCP project
 
@@ -135,12 +136,11 @@ Stripe dashboard → **Developers → Webhooks → Add endpoint** →
 
 ## Razorpay Standard Checkout
 
-The dashboard uses Razorpay Standard Checkout for subscription and booking
-payments. The backend creates orders using server-calculated prices and
-verifies the Checkout signature and paid order before activating a membership
-or confirming a booking. For local development, set `RAZORPAY_KEY_ID` and
-`RAZORPAY_KEY_SECRET` in `backend/.env`; only the key ID is exposed to the
-browser.
+Razorpay Standard Checkout is used for membership subscriptions. Flight
+bookings in the hackathon demo are no-charge demo records and do not reserve
+airline inventory or issue tickets. For local development, set
+`RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` in `backend/.env`; only the key ID
+is exposed to the browser.
 
 For Cloud Run, store both Razorpay values in Secret Manager, grant the
 Cloud Run service account Secret Manager Secret Accessor, then attach them:
@@ -166,11 +166,10 @@ Your app is now live at `https://<PROJECT_ID>.web.app`.
 - [ ] `https://<cloud-run-url>/health` returns `{"status": "ok"}`
       (`/healthz` is also available)
 - [ ] Sign in with Google on the live site
-- [ ] Subscribe to a tier (real flow now goes through Stripe Checkout)
-- [ ] See live empty-seat deals load
-- [ ] Book a seat → redirected to Stripe Checkout → pay with a
-      [test card](https://stripe.com/docs/testing) (`4242 4242 4242 4242`)
-- [ ] Booking status flips to `CONFIRMED` after the webhook fires
+- [ ] Subscribe to a tier (Razorpay Standard Checkout; test mode recommended)
+- [ ] See scheduled flights and clearly labeled estimated availability
+- [ ] Create a demo booking with a matching active membership; no booking
+      payment is taken and no airline seat is reserved
 - [ ] Chat with the concierge and ask it to find/book a seat
 
 ## Notes on "real-time" flight data
@@ -180,8 +179,10 @@ count; airlines keep that in their own private inventory systems. Three
 adapters are available (`FLIGHT_DATA_PROVIDER`):
 
 - `mock` (default) — synthetic flights/seats, zero setup.
-- `aviationstack` — real flight schedules from aviationstack.com's free
-  tier; seat counts are still synthesised on top. Set `AVIATIONSTACK_API_KEY`.
+- `aviationstack` — scheduled flights from Delhi to selected domestic routes
+  using AviationStack's free tier; data refreshes at most once per 24 hours to
+  stay within the free request quota. Seat counts and displayed prices are
+  estimates, and booking is demo-only. Set `AVIATIONSTACK_API_KEY`.
 - `amadeus` — real flights **and** real `numberOfBookableSeats` from the
   Amadeus Self-Service Flight Offers Search API — the same GDS data
   Skyscanner/Google Flights are themselves built on (GDS convention caps
@@ -194,3 +195,12 @@ For a true seat-level feed you'd need a direct airline/GDS inventory
 partnership (a business agreement, not a public API). Add it as one more
 `FlightDataProvider` implementation; nothing else in the app needs to
 change (see `FlightDataProvider` in `app/domain/ports.py`).
+
+To deploy with the existing AviationStack Secret Manager secret without
+renaming it, map it to the environment variable expected by the app:
+
+```powershell
+./infra/deploy-backend.ps1 -ProjectId <PROJECT_ID> -FirebaseProjectId <FIREBASE_PROJECT_ID> `
+  -Region asia-south1 -FlightDataProvider aviationstack `
+  -AviationStackSecretName FLIGHT_DATA_PROVIDER_aviationstack
+```

@@ -9,7 +9,6 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from app.api.deps import get_container, get_current_user_id
 from app.api.schemas import (
     RazorpayOrderOut,
-    RazorpayBookingOrderRequest,
     RazorpayVerifyRequest,
     SubscribeRequest,
 )
@@ -109,32 +108,12 @@ def create_subscription_order(
     )
 
 
-@router.post("/booking-order", response_model=RazorpayOrderOut)
-def create_booking_order(
-    request: RazorpayBookingOrderRequest,
-    user_id: str = Depends(get_current_user_id),
-    container: Container = Depends(get_container),
-) -> RazorpayOrderOut:
-    booking = container.booking_repo.get(request.booking_id)
-    if not booking or booking.user_id != user_id:
-        raise HTTPException(status_code=404, detail="Booking not found.")
-    if booking.status != BookingStatus.PENDING_PAYMENT or booking.payment_reference:
-        raise HTTPException(status_code=409, detail="Booking is not awaiting payment.")
-
-    order = _create_order(
-        _razorpay_gateway(),
-        amount=booking.total_amount.amount_minor,
-        currency=booking.total_amount.currency,
-        receipt=f"book-{uuid.uuid4().hex}",
-        notes={
-            "kind": "booking",
-            "user_id": user_id,
-            "booking_id": booking.id,
-        },
+@router.post("/booking-order", status_code=status.HTTP_410_GONE)
+def create_booking_order() -> None:
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail="Flight bookings are demo-only; no booking payment is accepted.",
     )
-    booking.payment_reference = order.order_id
-    container.booking_repo.save(booking)
-    return order
 
 
 @router.post("/verify")

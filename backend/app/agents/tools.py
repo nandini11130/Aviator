@@ -34,13 +34,14 @@ def _require_container() -> Container:
 
 
 def search_empty_seat_deals(cabin_class: str = "") -> dict:
-    """Search live last-minute empty-seat deals across all flights.
+    """Search scheduled flights and estimated seat availability.
 
     Args:
         cabin_class: Optional filter - one of "ECONOMY", "BUSINESS", "FIRST".
             Leave empty to search every cabin class.
     """
     container = _require_container()
+    container.refresh_flights()
     parsed_cabin_class = CabinClass(cabin_class.upper()) if cabin_class else None
     deals = container.search_deals.execute(parsed_cabin_class)
     return {
@@ -55,6 +56,8 @@ def search_empty_seat_deals(cabin_class: str = "") -> dict:
                 "cabin_class": deal.inventory.cabin_class.value,
                 "empty_seats": deal.inventory.empty_seats,
                 "price": deal.price.to_dict(),
+                "data_source": "AviationStack schedule; estimated seats and price",
+                "data_updated_at": deal.inventory.updated_at.isoformat(),
             }
             for deal in deals
         ]
@@ -76,7 +79,7 @@ def calculate_total_price(base_token_amount_minor: int, cabin_class: str) -> dic
 
 
 def book_empty_seat(user_id: str, flight_id: str, cabin_class: str) -> dict:
-    """Reserve an empty seat and start a payment checkout for it.
+    """Create a no-charge demo booking; this does not reserve airline inventory.
 
     Args:
         user_id: The authenticated user's id.
@@ -87,7 +90,11 @@ def book_empty_seat(user_id: str, flight_id: str, cabin_class: str) -> dict:
     container = _require_container()
     try:
         booking = container.create_booking.execute(
-            user_id=user_id, flight_id=flight_id, cabin_class=CabinClass(cabin_class.upper())
+            user_id=user_id,
+            flight_id=flight_id,
+            cabin_class=CabinClass(cabin_class.upper()),
+            create_checkout=False,
+            demo=True,
         )
     except SubscriptionRequiredError as exc:
         return {"error": "subscription_required", "message": str(exc)}
@@ -97,8 +104,11 @@ def book_empty_seat(user_id: str, flight_id: str, cabin_class: str) -> dict:
     return {
         "booking_id": booking.id,
         "status": booking.status.value,
-        "total_amount": booking.total_amount.to_dict(),
-        "checkout_url": booking.checkout_url,
+        "demo_booking": True,
+        "message": (
+            "Demo booking saved. No airline seat was reserved, no ticket was "
+            "issued, and no booking payment was taken."
+        ),
     }
 
 
@@ -113,13 +123,18 @@ def get_booking_status(booking_id: str) -> dict:
         "status": booking.status.value,
         "flight_id": booking.flight_id,
         "cabin_class": booking.cabin_class.value,
-        "total_amount": booking.total_amount.to_dict(),
+        "demo_booking": booking.status.value == "DEMO_CONFIRMED",
+        "message": (
+            "Demo only; no ticket was issued and no booking payment was taken."
+            if booking.status.value == "DEMO_CONFIRMED"
+            else "Booking status retrieved."
+        ),
     }
 
 
 def get_subscription_policy() -> dict:
     """Return the Aviator subscription tiers, their membership fees, and the
-    GST rules applied to last-minute seat bookings.
+    explanation of the current demo booking flow.
     """
     return {
         "tiers": [
@@ -132,8 +147,9 @@ def get_subscription_policy() -> dict:
             "FIRST": "12% GST on the token amount",
         },
         "note": (
-            "A subscription unlocks the ability to book last-minute empty"
-            " seats in that cabin class. Each booking is paid separately as"
-            " a small token amount plus GST."
+            "Membership fees are charged through Razorpay. Matching active "
+            "members can create no-charge demo bookings. Flight availability "
+            "and prices are estimates; demo bookings do not reserve airline "
+            "seats or issue tickets."
         ),
     }

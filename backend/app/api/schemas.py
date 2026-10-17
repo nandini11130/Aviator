@@ -34,9 +34,13 @@ class DealOut(BaseModel):
     cabin_class: CabinClass
     empty_seats: int
     price: PriceOut
+    data_source: str
+    availability_is_estimated: bool
+    price_is_estimated: bool
+    data_updated_at: datetime
 
     @classmethod
-    def from_domain(cls, deal: DealView) -> "DealOut":
+    def from_domain(cls, deal: DealView, data_source: str) -> "DealOut":
         return cls(
             flight_id=deal.flight.id,
             flight_number=deal.flight.flight_number,
@@ -47,6 +51,10 @@ class DealOut(BaseModel):
             cabin_class=deal.inventory.cabin_class,
             empty_seats=deal.inventory.empty_seats,
             price=PriceOut(**deal.price.to_dict()),
+            data_source=data_source,
+            availability_is_estimated=True,
+            price_is_estimated=True,
+            data_updated_at=deal.inventory.updated_at,
         )
 
 
