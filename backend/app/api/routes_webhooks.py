@@ -5,7 +5,7 @@ the application layer understands.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
 from app.api.deps import get_container
 from app.container import Container
@@ -14,11 +14,16 @@ from app.infrastructure.payment_gateways import RazorpayPaymentGateway, StripePa
 router = APIRouter(prefix="/api/webhooks", tags=["webhooks"])
 
 
-@router.post("/stripe", status_code=status.HTTP_204_NO_CONTENT)
+@router.post(
+    "/stripe",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+    response_model=None,
+)
 async def stripe_webhook(
     request: Request,
     container: Container = Depends(get_container),
-) -> None:
+) -> Response:
     payload = await request.body()
     signature = request.headers.get("stripe-signature", "")
     gateway = container.payment_gateway
@@ -34,13 +39,19 @@ async def stripe_webhook(
             status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid webhook: {exc}"
         ) from exc
     container.confirm_payment.execute(event)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.post("/razorpay", status_code=status.HTTP_204_NO_CONTENT)
+@router.post(
+    "/razorpay",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+    response_model=None,
+)
 async def razorpay_webhook(
     request: Request,
     container: Container = Depends(get_container),
-) -> None:
+) -> Response:
     payload = await request.body()
     signature = request.headers.get("x-razorpay-signature", "")
     gateway = container.payment_gateway
@@ -56,3 +67,4 @@ async def razorpay_webhook(
             status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid webhook: {exc}"
         ) from exc
     container.confirm_payment.execute(event)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
