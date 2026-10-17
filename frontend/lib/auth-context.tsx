@@ -33,7 +33,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setDemoUserId(window.localStorage.getItem(DEMO_USER_STORAGE_KEY));
+    if (process.env.NODE_ENV === "production") {
+      window.localStorage.removeItem(DEMO_USER_STORAGE_KEY);
+    } else {
+      setDemoUserId(window.localStorage.getItem(DEMO_USER_STORAGE_KEY));
+    }
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setFirebaseUser(user);
       setLoading(false);
