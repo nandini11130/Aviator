@@ -10,6 +10,9 @@ import {
 } from "react";
 import {
   onAuthStateChanged,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
+  signInWithEmailAndPassword,
   signInWithPopup,
   signInWithRedirect,
   signOut,
@@ -26,6 +29,9 @@ interface AuthState {
   userId: string | null;
   loading: boolean;
   signInWithGoogle: () => Promise<boolean>;
+  signInWithEmailPassword: (email: string, password: string) => Promise<void>;
+  createEmailAccount: (email: string, password: string) => Promise<void>;
+  sendPasswordReset: (email: string) => Promise<void>;
   continueAsDemoUser: (name: string) => void;
   signOutUser: () => Promise<void>;
   callApi: <T>(path: string, init?: RequestInit) => Promise<T>;
@@ -62,6 +68,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await signInWithRedirect(auth, googleProvider);
       return true;
     }
+  }, []);
+
+  const signInWithEmailPassword = useCallback(
+    async (email: string, password: string) => {
+      await signInWithEmailAndPassword(auth, email, password);
+    },
+    []
+  );
+
+  const createEmailAccount = useCallback(
+    async (email: string, password: string) => {
+      await createUserWithEmailAndPassword(auth, email, password);
+    },
+    []
+  );
+
+  const sendPasswordReset = useCallback(async (email: string) => {
+    await sendPasswordResetEmail(auth, email);
   }, []);
 
   const continueAsDemoUser = useCallback((name: string) => {
@@ -121,6 +145,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         userId,
         loading,
         signInWithGoogle,
+        signInWithEmailPassword,
+        createEmailAccount,
+        sendPasswordReset,
         continueAsDemoUser,
         signOutUser,
         callApi,
