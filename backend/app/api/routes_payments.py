@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import uuid
 
 import httpx
@@ -19,6 +20,7 @@ from app.domain.value_objects import CabinClass
 from app.infrastructure.payment_gateways import RazorpayPaymentGateway
 
 router = APIRouter(prefix="/api/payments", tags=["payments"])
+logger = logging.getLogger(__name__)
 
 
 def _razorpay_gateway() -> RazorpayPaymentGateway:
@@ -46,10 +48,33 @@ def _create_order(
 ) -> RazorpayOrderOut:
     try:
         order = gateway.create_order(amount, currency, receipt, notes)
-    except httpx.HTTPError as exc:
+    except httpx.HTTPStatusError as exc:
+        response = exc.response
+        try:
+            error = response.json().get("error", {})
+        except (ValueError, AttributeError):
+            error = {}
+        error_code = error.get("code") or "UPSTREAM_ERROR"
+        logger.error(
+            "Razorpay rejected order creation (status=%s, code=%s, description=%s)",
+            response.status_code,
+            error_code,
+            error.get("description", "No description returned."),
+        )
+        if response.status_code in (401, 403):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Razorpay authentication failed. Check the deployed key pair.",
+            ) from exc
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Could not create Razorpay order.",
+            detail=f"Razorpay rejected order creation ({error_code}).",
+        ) from exc
+    except httpx.HTTPError as exc:
+        logger.exception("Could not reach Razorpay while creating an order.")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Could not reach Razorpay to create an order.",
         ) from exc
     return RazorpayOrderOut(
         key_id=get_settings().razorpay_key_id,

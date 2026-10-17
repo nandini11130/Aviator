@@ -94,7 +94,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const response = await fetch(`${API_BASE}${path}`, { ...init, headers });
       if (!response.ok) {
         const body = await response.text();
-        throw new Error(body || `Request to ${path} failed (${response.status}).`);
+        let message = body;
+        try {
+          const payload = JSON.parse(body) as { detail?: string; message?: string };
+          message = payload.detail || payload.message || body;
+        } catch {
+          // Non-JSON responses (for example, a gateway error page) stay readable as-is.
+        }
+        throw new Error(message || `Request to ${path} failed (${response.status}).`);
       }
       if (response.status === 204) {
         return undefined as T;

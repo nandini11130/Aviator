@@ -3,8 +3,36 @@ import hmac
 
 import httpx
 import pytest
+from fastapi import HTTPException
 
+from app.api.routes_payments import _create_order
 from app.infrastructure.payment_gateways import RazorpayPaymentGateway
+
+
+@pytest.mark.parametrize(
+    ("upstream_status", "expected_status"),
+    [(401, 401), (400, 502)],
+)
+def test_create_order_reports_razorpay_http_errors(upstream_status, expected_status):
+    request = httpx.Request("POST", "https://api.razorpay.com/v1/orders")
+    response = httpx.Response(
+        upstream_status,
+        json={"error": {"code": "BAD_REQUEST_ERROR", "description": "Invalid request."}},
+        request=request,
+    )
+    gateway = RazorpayPaymentGateway("key", "secret", "", "")
+    gateway.create_order = lambda *args: response.raise_for_status()
+
+    with pytest.raises(HTTPException) as raised:
+        _create_order(
+            gateway,
+            amount=49900,
+            currency="INR",
+            receipt="sub-test",
+            notes={"kind": "subscription"},
+        )
+
+    assert raised.value.status_code == expected_status
 
 
 def test_create_order_rejects_amount_below_razorpay_minimum():
