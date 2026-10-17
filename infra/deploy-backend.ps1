@@ -37,7 +37,7 @@ try {
     --source . `
     --platform managed `
     --allow-unauthenticated `
-    --update-env-vars "ENVIRONMENT=production,GOOGLE_CLOUD_PROJECT=$ProjectId,FIREBASE_PROJECT_ID=$FirebaseProjectId,CORS_ALLOW_ORIGINS=https://$FirebaseProjectId.web.app"
+    --update-env-vars "ENVIRONMENT=production,GOOGLE_CLOUD_PROJECT=$ProjectId,FIREBASE_PROJECT_ID=$FirebaseProjectId,GOOGLE_GENAI_USE_VERTEXAI=true,GOOGLE_CLOUD_LOCATION=$Region,CORS_ALLOW_ORIGINS=https://$FirebaseProjectId.web.app"
 
   Write-Host "Done. Fetch the service URL with:"
   Write-Host "  gcloud run services describe $ServiceName --project $ProjectId --region $Region --format='value(status.url)'"

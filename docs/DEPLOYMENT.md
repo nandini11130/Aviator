@@ -100,7 +100,11 @@ If your Firebase project has a different project ID from your GCP project,
 pass it separately with `-FirebaseProjectId <FIREBASE_PROJECT_ID>`.
 
 This builds `backend/Dockerfile` with Cloud Build and deploys it with
-`ENVIRONMENT=production`. After it finishes, grab the service URL:
+`ENVIRONMENT=production`. The deployment uses Vertex AI for the Gemini
+concierge, so enable `aiplatform.googleapis.com` and grant the Cloud Run
+service account the **Vertex AI User** role. The script sets
+`GOOGLE_GENAI_USE_VERTEXAI=true` and `GOOGLE_CLOUD_LOCATION` to the selected
+Cloud Run region. After it finishes, grab the service URL:
 
 ```powershell
 gcloud run services describe aviator-api --project <PROJECT_ID> --region asia-south1 --format "value(status.url)"
