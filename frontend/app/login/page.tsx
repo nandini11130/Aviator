@@ -18,16 +18,20 @@ export default function LoginPage() {
   const handleGoogleSignIn = async () => {
     try {
       setError(null);
-      await signInWithGoogle();
-      router.push("/dashboard");
+      const redirecting = await signInWithGoogle();
+      if (!redirecting) {
+        router.push("/dashboard");
+      }
     } catch (err) {
       const authError = err as Error & { code?: string };
       const details = authError.code
         ? `${authError.code}: ${authError.message}`
         : authError.message;
-      setError(
-        `Google sign-in failed${details ? ` (${details})` : ""}. In Firebase Console, enable Authentication and the Google provider for project aviator-1bbab, and add aviator-1bbab.web.app to Authorized domains.`
-      );
+      const guidance =
+        authError.code === "auth/unauthorized-domain"
+          ? "Add aviator-1bbab.web.app to Firebase Authentication's Authorized domains."
+          : "Please try again or contact support if the problem continues.";
+      setError(`Google sign-in failed${details ? ` (${details})` : ""}. ${guidance}`);
     }
   };
 

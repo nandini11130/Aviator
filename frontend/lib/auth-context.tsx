@@ -8,7 +8,13 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { onAuthStateChanged, signInWithPopup, signOut, type User } from "firebase/auth";
+import {
+  onAuthStateChanged,
+  signInWithPopup,
+  signInWithRedirect,
+  signOut,
+  type User,
+} from "firebase/auth";
 import { auth, googleProvider } from "./firebase";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
@@ -19,7 +25,7 @@ interface AuthState {
   demoUserId: string | null;
   userId: string | null;
   loading: boolean;
-  signInWithGoogle: () => Promise<void>;
+  signInWithGoogle: () => Promise<boolean>;
   continueAsDemoUser: (name: string) => void;
   signOutUser: () => Promise<void>;
   callApi: <T>(path: string, init?: RequestInit) => Promise<T>;
@@ -46,7 +52,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signInWithGoogle = useCallback(async () => {
-    await signInWithPopup(auth, googleProvider);
+    try {
+      await signInWithPopup(auth, googleProvider);
+      return false;
+    } catch (error) {
+      if ((error as { code?: string }).code !== "auth/popup-blocked") {
+        throw error;
+      }
+      await signInWithRedirect(auth, googleProvider);
+      return true;
+    }
   }, []);
 
   const continueAsDemoUser = useCallback((name: string) => {
