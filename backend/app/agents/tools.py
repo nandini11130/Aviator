@@ -13,6 +13,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar, Token
 from typing import Literal
 
+from app.application.airport_codes import normalize_airport_code
 from app.application.use_cases import (
     ManageSubscriptionUseCase,
     parse_departure_datetime,
@@ -70,8 +71,10 @@ def search_empty_seat_deals(
     Args:
         cabin_class: Optional filter - one of "ECONOMY", "BUSINESS", "FIRST".
             Leave empty to search every cabin class.
-        origin: Optional departure airport IATA code, e.g. "DEL".
-        destination: Optional arrival airport IATA code, e.g. "LHR".
+        origin: Optional departure airport code or city name, e.g. "DEL" or
+            "Delhi".
+        destination: Optional arrival airport code or city name, e.g. "LHR"
+            or "London".
         airline: Optional airline name or code substring.
         departure_after: Optional ISO-8601 earliest departure date or datetime.
         departure_before: Optional inclusive latest departure date or datetime.
@@ -83,10 +86,14 @@ def search_empty_seat_deals(
     parsed_cabin_class = CabinClass(cabin_class.upper()) if cabin_class else None
     parsed_after = parse_departure_datetime(departure_after)
     parsed_before = parse_departure_datetime(departure_before, end_of_day=True)
+    normalized_origin = normalize_airport_code(origin) if origin.strip() else ""
+    normalized_destination = (
+        normalize_airport_code(destination) if destination.strip() else ""
+    )
     deals = container.search_deals.execute(
         parsed_cabin_class,
-        origin=origin.strip(),
-        destination=destination.strip(),
+        origin=normalized_origin,
+        destination=normalized_destination,
         airline=airline.strip(),
         departure_after=parsed_after,
         departure_before=parsed_before,
@@ -100,6 +107,7 @@ def search_empty_seat_deals(
     return {
         "priority": priority,
         "result_count": len(deals),
+        "returned_count": min(len(deals), 10),
         "ranking_note": {
             "lowest_price": "Ranked by estimated total price, lowest first.",
             "earliest_departure": "Ranked by scheduled departure time, earliest first.",
@@ -119,7 +127,7 @@ def search_empty_seat_deals(
                 "data_source": "AviationStack schedule; estimated seats and price",
                 "data_updated_at": deal.inventory.updated_at.isoformat(),
             }
-            for deal in deals
+            for deal in deals[:10]
         ]
     }
 

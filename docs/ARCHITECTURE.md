@@ -102,6 +102,12 @@ application-layer use case — the agents never embed business rules
 themselves, so the same pricing/booking logic is used whether a traveller
 goes through the REST API or the chat widget.
 
+For clear city or airport-code flight searches, the chat API searches the
+schedule directly and returns a compact result table. Requests with detailed
+preferences continue through ADK so the flight specialist can apply dates,
+airlines, and departure windows. Known city names are normalized to IATA codes
+before searching.
+
 ## Payments & tax
 
 - Subscriptions and bookings both use **Stripe Checkout** (hosted payment

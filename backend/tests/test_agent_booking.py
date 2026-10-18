@@ -9,7 +9,7 @@ from google.genai.errors import ClientError
 
 from app.agents import tools
 from app.api import routes_agent
-from app.api.routes_agent import chat
+from app.api.routes_agent import _extract_flight_route, chat
 from app.api.schemas import ChatRequest
 from app.application.use_cases import (
     CalculatePriceUseCase,
@@ -129,6 +129,7 @@ def test_chat_runner_booking_uses_authenticated_request_identity(agent_booking_c
             ChatRequest(message="Book this flight"),
             user_id="authenticated-user",
             runner=BookingRunner(),
+            container=agent_booking_container,
         )
     )
 
@@ -170,6 +171,7 @@ def test_chat_returns_retryable_error_when_vertex_ai_is_at_capacity(
                 ChatRequest(message="Hello"),
                 user_id="authenticated-user",
                 runner=CapacityLimitedRunner(),
+                container=agent_booking_container,
             )
         )
 
@@ -200,6 +202,7 @@ def test_chat_rejects_empty_agent_reply(agent_booking_container):
                 ChatRequest(message="Hello"),
                 user_id="authenticated-user",
                 runner=EmptyReplyRunner(),
+                container=agent_booking_container,
             )
         )
 
@@ -250,3 +253,78 @@ def test_agent_flight_search_applies_natural_language_search_arguments(
     ] == sorted(
         deal["price"]["total"]["amount_minor"] for deal in result["deals"]
     )
+
+
+def test_agent_flight_search_resolves_city_names(agent_booking_container):
+    result = tools.search_empty_seat_deals(
+        origin="Delhi",
+        destination="Mumbai",
+        cabin_class="ECONOMY",
+    )
+
+    assert result["result_count"] > 0
+    assert all(
+        deal["origin"] == "DEL" and deal["destination"] == "BOM"
+        for deal in result["deals"]
+    )
+
+
+def test_chat_searches_specific_city_route_without_calling_gemini(
+    agent_booking_container,
+):
+    class UnusedRunner:
+        pass
+
+    response = asyncio.run(
+        chat(
+            ChatRequest(message="Find flights from Delhi to Mumbai in Economy"),
+            user_id="authenticated-user",
+            runner=UnusedRunner(),
+            container=agent_booking_container,
+        )
+    )
+
+    assert "Flight" in response.reply
+    assert "DEL → BOM" in response.reply
+    assert "ECONOMY" in response.reply
+    assert "estimated" in response.reply.lower()
+
+
+def test_chat_searches_destination_only_without_calling_gemini(
+    agent_booking_container,
+):
+    class UnusedRunner:
+        pass
+
+    response = asyncio.run(
+        chat(
+            ChatRequest(message="What flights go to Dubai?"),
+            user_id="authenticated-user",
+            runner=UnusedRunner(),
+            container=agent_booking_container,
+        )
+    )
+
+    assert "Flight" in response.reply
+    assert "DXB" in response.reply
+
+
+@pytest.mark.parametrize(
+    ("message", "expected"),
+    [
+        (
+            "Which flights are available between Mumbai and Bangalore?",
+            ("BOM", "BLR", None),
+        ),
+        (
+            "Show flights DEL to BOM in Business",
+            ("DEL", "BOM", CabinClass.BUSINESS),
+        ),
+        ("Find flights from Delhi tomorrow", None),
+        ("Book a flight from Delhi to Mumbai", None),
+    ],
+)
+def test_flight_intent_parser_handles_routes_and_preserves_other_intents(
+    message, expected
+):
+    assert _extract_flight_route(message) == expected
